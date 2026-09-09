@@ -1,0 +1,59 @@
+name: 'Release Sky-Blog Desktop'
+
+on:
+  push:
+    tags:
+      - 'v*' # 当你推送形如 v1.0.0 的 tag 时触发打包流程
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest' # 构建 Windows exe/msi 安装包
+            args: ''
+          - platform: 'macos-latest'   # 构建 macOS dmg 安装包
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # 云端 runner 会自动拉起 stable Rust 链
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # 仅在 Linux 构建时才需要的系统库（保留防扩展需求）
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # 注入环境变量供 Next.js 编译
+      - name: Build Tauri App via Action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Sky-Blog Desktop v__VERSION__'
+          releaseBody: 'Sky-Blog 自动编译桌面客户端版本'
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

@@ -1,7 +1,7 @@
 name: 'Release Sky-Blog Desktop'
 
 on:
-  workflow_dispatch: # 支持在 GitHub 网页界面手动点击按钮触发构建
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -14,9 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'windows-latest' # 构建 Windows exe/msi 安装包
+          - platform: 'windows-latest'
             args: ''
-          - platform: 'macos-latest'   # 构建 macOS dmg 安装包
+          - platform: 'macos-latest'
             args: ''
 
     runs-on: ${{ matrix.platform }}
@@ -27,24 +27,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
-      # 云端 runner 会自动拉起 stable Rust 链
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      # 仅在 Linux 构建时才需要的系统库（保留防扩展需求）
-      - name: Install dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Install frontend dependencies
         run: npm ci
 
-      # 注入环境变量供 Next.js 编译
       - name: Build Tauri App via Action
         uses: tauri-apps/tauri-action@v0
         env:

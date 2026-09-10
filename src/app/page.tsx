@@ -20,25 +20,42 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'forum' | 'chat'>('forum');
   const [postContent, setPostContent] = useState('');
 
+  // 动态导入 Tauri 窗口 API（规避 SSR 构建报错）
+  const handleMinimize = async () => {
+    const { appWindow } = await import('@tauri-apps/api/window');
+    appWindow.minimize();
+  };
+
+  const handleToggleMaximize = async () => {
+    const { appWindow } = await import('@tauri-apps/api/window');
+    appWindow.toggleMaximize();
+  };
+
+  const handleClose = async () => {
+    const { appWindow } = await import('@tauri-apps/api/window');
+    appWindow.close();
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', padding: '8px' }} className={isDarkMode ? 'dark' : ''}>
       <div className="app-container">
         
-        {/* 1. 顶部标题栏 */}
-        <div data-tauri-drag-region className="titlebar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600 }}>
+        {/* 1. 顶部标题栏（仅标题文本区可拖拽） */}
+        <div className="titlebar">
+          <div data-tauri-drag-region style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, height: '100%' }}>
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0099ff' }}></span>
             <span>Sky-Blog 客户端</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="win-btn">
+          {/* 窗口控制按钮组：不可拖拽 */}
+          <div style={{ display: 'flex', itemsCenter: 'center', gap: '4px' }}>
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="win-btn" title="切换模式">
               {isDarkMode ? <Sun size={14} color="#facc15" /> : <Moon size={14} color="#4b5563" />}
             </button>
-            <div style={{ width: '1px', height: '12px', backgroundColor: '#ccc', margin: '0 4px' }} />
-            <button className="win-btn"><Minus size={12} /></button>
-            <button className="win-btn"><Square size={10} /></button>
-            <button className="win-btn" style={{ color: '#ef4444' }}><X size={12} /></button>
+            <div style={{ width: '1px', height: '12px', backgroundColor: '#ccc', margin: '0 4px', alignSelf: 'center' }} />
+            <button onClick={handleMinimize} className="win-btn" title="最小化"><Minus size={12} /></button>
+            <button onClick={handleToggleMaximize} className="win-btn" title="最大化"><Square size={10} /></button>
+            <button onClick={handleClose} className="win-btn win-close-btn" title="关闭"><X size={12} /></button>
           </div>
         </div>
 
@@ -53,6 +70,7 @@ export default function Home() {
               <button 
                 onClick={() => setActiveTab('forum')}
                 className={`nav-btn ${activeTab === 'forum' ? 'active' : ''}`}
+                title="社区论坛"
               >
                 <LayoutGrid size={20} />
               </button>
@@ -60,12 +78,13 @@ export default function Home() {
               <button 
                 onClick={() => setActiveTab('chat')}
                 className={`nav-btn ${activeTab === 'chat' ? 'active' : ''}`}
+                title="即时聊天"
               >
                 <MessageSquare size={20} />
               </button>
             </div>
 
-            <button className="nav-btn"><User size={20} /></button>
+            <button className="nav-btn" title="个人中心"><User size={20} /></button>
           </div>
 
           {/* 右侧主内容区 */}

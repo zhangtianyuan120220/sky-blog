@@ -1,8 +1,39 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-body {
+@layer base {
+  :root {
+    --bg-main: #f3f4f6;
+    --bg-sidebar: #e5e7eb;
+    --bg-card: #ffffff;
+    --text-primary: #1f2937;
+    --border-color: #e5e7eb;
+    --accent-blue: #0099ff;
+  }
+
+  .dark {
+    --bg-main: #18191c;
+    --bg-sidebar: #111214;
+    --bg-card: #222429;
+    --text-primary: #f3f4f6;
+    --border-color: #2f3136;
+    --accent-blue: #0099ff;
+  }
+}
+
+/* Tauri 无边框窗口圆角与阴影 */
+html, body {
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
   user-select: none;
-  -webkit-user-select: none;
+}
+
+.app-container {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }

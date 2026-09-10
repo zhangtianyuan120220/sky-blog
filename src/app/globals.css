@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -20,7 +22,7 @@
   }
 }
 
-/* Tauri 无边框窗口圆角与阴影 */
+/* Tauri 无边框窗口圆角与背景透明 */
 html, body {
   background: transparent;
   margin: 0;

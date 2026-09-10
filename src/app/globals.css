@@ -139,3 +139,7 @@ html, body {
   align-items: center;
   gap: 4px;
 }
+.win-close-btn:hover {
+  background-color: #ef4444 !important;
+  color: white !important;
+}

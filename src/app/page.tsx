@@ -20,35 +20,49 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'forum' | 'chat'>('forum');
   const [postContent, setPostContent] = useState('');
 
-  // 动态导入 Tauri 窗口 API（规避 SSR 构建报错）
+  // 使用 getCurrentWindow 适配 Tauri 最新 API
   const handleMinimize = async () => {
-    const { appWindow } = await import('@tauri-apps/api/window');
-    appWindow.minimize();
+    try {
+      const windowApi = await import('@tauri-apps/api/window');
+      const win = windowApi.getCurrentWindow ? windowApi.getCurrentWindow() : (windowApi as any).appWindow;
+      await win.minimize();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleToggleMaximize = async () => {
-    const { appWindow } = await import('@tauri-apps/api/window');
-    appWindow.toggleMaximize();
+    try {
+      const windowApi = await import('@tauri-apps/api/window');
+      const win = windowApi.getCurrentWindow ? windowApi.getCurrentWindow() : (windowApi as any).appWindow;
+      await win.toggleMaximize();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleClose = async () => {
-    const { appWindow } = await import('@tauri-apps/api/window');
-    appWindow.close();
+    try {
+      const windowApi = await import('@tauri-apps/api/window');
+      const win = windowApi.getCurrentWindow ? windowApi.getCurrentWindow() : (windowApi as any).appWindow;
+      await win.close();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
     <div style={{ width: '100vw', height: '100vh', padding: '8px' }} className={isDarkMode ? 'dark' : ''}>
       <div className="app-container">
         
-        {/* 1. 顶部标题栏（仅标题文本区可拖拽） */}
+        {/* 1. 顶部标题栏 */}
         <div className="titlebar">
           <div data-tauri-drag-region style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600, height: '100%' }}>
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0099ff' }}></span>
             <span>Sky-Blog 客户端</span>
           </div>
 
-          {/* 窗口控制按钮组：不可拖拽 */}
-          <div style={{ display: 'flex', itemsCenter: 'center', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="win-btn" title="切换模式">
               {isDarkMode ? <Sun size={14} color="#facc15" /> : <Moon size={14} color="#4b5563" />}
             </button>

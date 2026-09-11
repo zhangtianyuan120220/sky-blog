@@ -1,6 +1,6 @@
 [package]
 name = "sky-blog"
-version = "1.0.5"
+version = "1.0.7"
 description = "Sky-Blog Desktop App"
 edition = "2021"
 

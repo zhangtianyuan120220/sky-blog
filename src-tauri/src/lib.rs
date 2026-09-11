@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, State,
+    AppHandle, Manager, State,
 };
 
 // 离线消息数据结构
@@ -23,18 +23,18 @@ pub struct LocalMessage {
 // 本地数据库句柄（互斥锁保证线程安全）
 pub struct DbState(pub Mutex<Option<Connection>>);
 
-// 初始化 SQLite 数据库 WAL 模式
 fn init_sqlite(app_handle: &AppHandle) -> Result<Connection, String> {
+    // 优先尝试标准 app_data 目录，失败则降级到本地临时目录
     let app_dir = app_handle
         .path()
         .app_data_dir()
-        .map_err(|e| e.to_string())?;
+        .unwrap_or_else(|_| std::env::temp_dir().join("sky-blog"));
+
     std::fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
     let db_path = app_dir.join("chat_offline.db");
 
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
 
-    // 开启预写日志 (WAL) 模式提升高并发读写性能
     conn.execute_batch(
         "
         PRAGMA journal_mode = WAL;

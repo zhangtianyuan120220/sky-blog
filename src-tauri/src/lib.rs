@@ -127,6 +127,7 @@ fn get_local_messages(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_http::init())
         .manage(DbState(Mutex::new(None)))
         .setup(|app| {
             // 初始化本地 SQLite

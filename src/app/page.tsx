@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   MessageSquare, 
   LayoutGrid, 
@@ -32,6 +32,7 @@ const initialMessages = [
 ];
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"feed" | "chat">("feed");
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -42,6 +43,19 @@ export default function Home() {
   // 聊天数据与输入
   const [messages, setMessages] = useState(initialMessages);
   const [chatInput, setChatInput] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // 防 SSR/水合失败导致的闪退
+  if (!mounted) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-100 text-gray-500 font-sans">
+        Sky-Blog 客户端加载中...
+      </div>
+    );
+  }
 
   // 动态去重逻辑：确保相同 id 的动态只渲染一次
   const uniquePosts = posts.filter(
@@ -134,7 +148,7 @@ export default function Home() {
       {/* 2. 主内容区域 */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* 顶部标题栏（客户端窗口拖拽区） */}
+        {/* 顶部标题栏 */}
         <header className="h-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
           <div>Sky-Blog 客户端</div>
           <div className="flex items-center gap-2">

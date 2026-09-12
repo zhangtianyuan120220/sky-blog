@@ -12,7 +12,6 @@ import {
   MessageCircle 
 } from "lucide-react";
 
-// 初始模拟动态数据
 const initialPosts = [
   {
     id: "post-1",
@@ -26,7 +25,6 @@ const initialPosts = [
   },
 ];
 
-// 初始模拟聊天数据
 const initialMessages = [
   { id: "1", sender: "Sky_distant", content: "欢迎来到 Sky-Blog 客户端全员大群！", time: "22:12" },
 ];
@@ -36,11 +34,9 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"feed" | "chat">("feed");
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // 动态数据与输入
   const [posts, setPosts] = useState(initialPosts);
   const [newPostContent, setNewPostContent] = useState("");
 
-  // 聊天数据与输入
   const [messages, setMessages] = useState(initialMessages);
   const [chatInput, setChatInput] = useState("");
 
@@ -48,7 +44,6 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // 防 SSR/水合失败导致的闪退
   if (!mounted) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-gray-100 text-gray-500 font-sans">
@@ -57,12 +52,10 @@ export default function Home() {
     );
   }
 
-  // 动态去重逻辑：确保相同 id 的动态只渲染一次
   const uniquePosts = posts.filter(
     (post, index, self) => index === self.findIndex((p) => p.id === post.id)
   );
 
-  // 发布新动态
   const handlePublishPost = () => {
     if (!newPostContent.trim()) return;
     const newPost = {
@@ -79,7 +72,6 @@ export default function Home() {
     setNewPostContent("");
   };
 
-  // 发送聊天消息
   const handleSendMessage = () => {
     if (!chatInput.trim()) return;
     setMessages((prev) => [
@@ -97,15 +89,13 @@ export default function Home() {
   return (
     <div className={`flex h-screen w-screen overflow-hidden ${isDarkMode ? "dark bg-gray-950 text-gray-100" : "bg-gray-100 text-gray-800"}`}>
       
-      {/* 1. 最左侧导航栏 */}
+      {/* 侧边导航栏 */}
       <aside className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 justify-between shrink-0 select-none">
         <div className="flex flex-col items-center gap-6">
-          {/* 用户头像 */}
           <div className="w-10 h-10 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center text-sm shadow">
             ZH
           </div>
 
-          {/* 选项卡按钮 */}
           <button
             onClick={() => setActiveTab("feed")}
             className={`p-3 rounded-xl transition-all ${
@@ -131,7 +121,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 底部退出/切换 */}
         <div className="flex flex-col items-center gap-4">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -145,10 +134,9 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* 2. 主内容区域 */}
+      {/* 主界面区域 */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* 顶部标题栏 */}
         <header className="h-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
           <div>Sky-Blog 客户端</div>
           <div className="flex items-center gap-2">
@@ -157,11 +145,9 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 视图 1：社区动态 */}
         {activeTab === "feed" && (
           <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full space-y-6">
             
-            {/* 发布动态卡片 */}
             <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3">
               <textarea
                 value={newPostContent}
@@ -180,7 +166,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 动态列表 */}
             <div className="space-y-4">
               {uniquePosts.map((post) => (
                 <div
@@ -217,11 +202,9 @@ export default function Home() {
           </div>
         )}
 
-        {/* 视图 2：即时通讯聊天频道 */}
         {activeTab === "chat" && (
           <div className="flex-1 flex h-full overflow-hidden bg-white dark:bg-gray-900">
             
-            {/* 左侧频道列表 */}
             <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col shrink-0">
               <div className="p-4 font-bold text-sm border-b border-gray-200 dark:border-gray-800">
                 消息频道
@@ -241,14 +224,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 右侧聊天窗口 */}
             <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-950">
-              {/* 频道标题 */}
               <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-semibold text-sm">
                 💬 全员交流大群
               </div>
 
-              {/* 消息历史 */}
               <div className="flex-1 p-6 overflow-y-auto space-y-4">
                 {messages.map((msg) => {
                   const isMe = msg.sender === "我";
@@ -276,7 +256,6 @@ export default function Home() {
                 })}
               </div>
 
-              {/* 底部发送框 */}
               <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-3">
                 <input
                   type="text"

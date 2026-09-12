@@ -7,40 +7,36 @@ on:
 
 jobs:
   release:
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest]
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+          - os: macos-latest  # 👈 必须包含 macOS 节点
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v1
+      # 如果是 Electron (electron-builder)
+      - name: Build & Publish
+        run: npm run publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: v__VERSION__
-          releaseName: 'Sky-Blog v__VERSION__'
-          releaseBody: 'Sky-Blog Desktop Client'
-          releaseDraft: false
-          prerelease: false
+
+      # 如果是 Tauri 应用
+      # - uses: tauri-apps/tauri-action@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tagName: ${{ github.ref_name }}

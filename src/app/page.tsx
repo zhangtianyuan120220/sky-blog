@@ -229,11 +229,11 @@ export default function Home() {
               <textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="以 zhangtianyuan120220@gmail.com 的身份分享你的想法..."
+                placeholder="分享你的想法..."
                 className="w-full h-24 bg-transparent resize-none outline-none text-sm placeholder-gray-400"
               />
               <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
-                <span className="text-xs text-gray-400">已登录: zhangtianyuan120220@gmail.com</span>
+                <span className="text-xs text-gray-400">Sky-Blog 社区动态</span>
                 <button
                   onClick={handlePublishPost}
                   className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"

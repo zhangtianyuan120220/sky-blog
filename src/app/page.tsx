@@ -55,27 +55,26 @@ export default function Home() {
     );
   }
 
-  // 拖动窗口事件
+  // 窗口拖动逻辑
   const handleStartDrag = async (e: React.MouseEvent) => {
-    // 只有按左键并且没有点击按钮时触发拖拽
     if (e.button === 0) {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         await getCurrentWindow().startDragging();
-      } catch {
-        // Web 浏览器环境忽略
+      } catch (err) {
+        console.error("Dragging failed:", err);
       }
     }
   };
 
-  // 窗口控制函数
+  // 窗口控制逻辑
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().minimize();
-    } catch {
-      console.log("Minimize is only available in Tauri app");
+    } catch (err) {
+      console.error("Minimize failed:", err);
     }
   };
 
@@ -84,8 +83,8 @@ export default function Home() {
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().toggleMaximize();
-    } catch {
-      console.log("Maximize is only available in Tauri app");
+    } catch (err) {
+      console.error("Maximize failed:", err);
     }
   };
 
@@ -94,14 +93,10 @@ export default function Home() {
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().close();
-    } catch {
-      console.log("Close is only available in Tauri app");
+    } catch (err) {
+      console.error("Close failed:", err);
     }
   };
-
-  const uniquePosts = posts.filter(
-    (post, index, self) => index === self.findIndex((p) => p.id === post.id)
-  );
 
   const handlePublishPost = () => {
     if (!newPostContent.trim()) return;
@@ -137,7 +132,7 @@ export default function Home() {
     <div className={`flex h-screen w-screen overflow-hidden ${isDarkMode ? "dark bg-gray-950 text-gray-100" : "bg-gray-100 text-gray-800"}`}>
       
       {/* 侧边导航栏 */}
-      <aside className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 justify-between shrink-0 select-none">
+      <aside className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 justify-between shrink-0 select-none z-20">
         <div className="flex flex-col items-center gap-6">
           <div className="w-10 h-10 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center text-sm shadow">
             ZH
@@ -188,7 +183,8 @@ export default function Home() {
         {/* 顶部 Header & 可拖拽标题栏 */}
         <header 
           onMouseDown={handleStartDrag}
-          className="h-9 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between pl-4 pr-1 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0 select-none cursor-default"
+          data-tauri-drag-region
+          className="h-9 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between pl-4 pr-0 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0 select-none cursor-default"
         >
           <div className="flex items-center gap-2 pointer-events-none">
             <span>Sky-Blog 客户端</span>
@@ -196,28 +192,29 @@ export default function Home() {
             <span className="text-[10px] opacity-70">已连接服务</span>
           </div>
 
-          {/* 窗口控制按钮组 (设置 data-tauri-drag-region="false" 并隔离拖拽事件) */}
-          <div data-tauri-drag-region="false" className="flex items-center z-50">
+          {/* 控制按钮区域 */}
+          <div 
+            data-tauri-drag-region="false" 
+            onMouseDown={(e) => e.stopPropagation()} 
+            className="flex items-center z-50 h-full"
+          >
             <button
               onClick={handleMinimize}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
+              className="w-10 h-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
               title="最小化"
             >
               <Minus size={13} />
             </button>
             <button
               onClick={handleToggleMaximize}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
+              className="w-10 h-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
               title="最大化 / 还原"
             >
               <Square size={11} />
             </button>
             <button
               onClick={handleClose}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="w-9 h-8 flex items-center justify-center hover:bg-red-500 hover:text-white text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
+              className="w-10 h-full flex items-center justify-center hover:bg-red-500 hover:text-white text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
               title="关闭"
             >
               <X size={14} />
@@ -247,7 +244,7 @@ export default function Home() {
             </div>
 
             <div className="space-y-4">
-              {uniquePosts.map((post) => (
+              {posts.map((post) => (
                 <div
                   key={post.id}
                   className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3"
@@ -285,7 +282,6 @@ export default function Home() {
         {/* 即时聊天选项卡 */}
         {activeTab === "chat" && (
           <div className="flex-1 flex min-h-0 overflow-hidden bg-white dark:bg-gray-900">
-            {/* 左侧频道列表 */}
             <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col shrink-0">
               <div className="p-4 font-bold text-sm border-b border-gray-200 dark:border-gray-800 shrink-0 select-none">
                 消息频道
@@ -305,13 +301,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 右侧聊天窗口 */}
             <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-950">
               <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-semibold text-sm shrink-0 select-none">
                 💬 全员交流大群
               </div>
 
-              {/* 消息对话区域 */}
               <div className="flex-1 p-6 overflow-y-auto space-y-4 min-h-0">
                 {messages.map((msg) => {
                   const isMe = msg.sender === "我";
@@ -339,7 +333,6 @@ export default function Home() {
                 })}
               </div>
 
-              {/* 底部输入发送栏 */}
               <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-3 shrink-0">
                 <input
                   type="text"

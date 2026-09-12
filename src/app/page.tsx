@@ -55,8 +55,22 @@ export default function Home() {
     );
   }
 
-  // 适配 Tauri v2 的窗口控制函数
-  const handleMinimize = async () => {
+  // 拖动窗口事件
+  const handleStartDrag = async (e: React.MouseEvent) => {
+    // 只有按左键并且没有点击按钮时触发拖拽
+    if (e.button === 0) {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await getCurrentWindow().startDragging();
+      } catch {
+        // Web 浏览器环境忽略
+      }
+    }
+  };
+
+  // 窗口控制函数
+  const handleMinimize = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().minimize();
@@ -65,7 +79,8 @@ export default function Home() {
     }
   };
 
-  const handleToggleMaximize = async () => {
+  const handleToggleMaximize = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().toggleMaximize();
@@ -74,7 +89,8 @@ export default function Home() {
     }
   };
 
-  const handleClose = async () => {
+  const handleClose = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().close();
@@ -169,36 +185,39 @@ export default function Home() {
       {/* 主界面区域 */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* 可拖拽的顶部 Header & 窗口控制按钮 */}
+        {/* 顶部 Header & 可拖拽标题栏 */}
         <header 
-          data-tauri-drag-region 
+          onMouseDown={handleStartDrag}
           className="h-9 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between pl-4 pr-1 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0 select-none cursor-default"
         >
-          <div data-tauri-drag-region className="flex items-center gap-2 pointer-events-none">
+          <div className="flex items-center gap-2 pointer-events-none">
             <span>Sky-Blog 客户端</span>
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
             <span className="text-[10px] opacity-70">已连接服务</span>
           </div>
 
-          {/* 窗口控制按钮组 */}
-          <div className="flex items-center">
+          {/* 窗口控制按钮组 (设置 data-tauri-drag-region="false" 并隔离拖拽事件) */}
+          <div data-tauri-drag-region="false" className="flex items-center z-50">
             <button
               onClick={handleMinimize}
-              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              onMouseDown={(e) => e.stopPropagation()}
+              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
               title="最小化"
             >
               <Minus size={13} />
             </button>
             <button
               onClick={handleToggleMaximize}
-              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              onMouseDown={(e) => e.stopPropagation()}
+              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
               title="最大化 / 还原"
             >
               <Square size={11} />
             </button>
             <button
               onClick={handleClose}
-              className="w-9 h-8 flex items-center justify-center hover:bg-red-500 hover:text-white text-gray-500 dark:text-gray-400 transition-colors"
+              onMouseDown={(e) => e.stopPropagation()}
+              className="w-9 h-8 flex items-center justify-center hover:bg-red-500 hover:text-white text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
               title="关闭"
             >
               <X size={14} />
@@ -220,7 +239,7 @@ export default function Home() {
                 <span className="text-xs text-gray-400">已登录: zhangtianyuan120220@gmail.com</span>
                 <button
                   onClick={handlePublishPost}
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Send size={14} /> 发布动态
                 </button>
@@ -250,10 +269,10 @@ export default function Home() {
                   </p>
 
                   <div className="flex items-center gap-6 pt-2 text-xs text-gray-500 border-t border-gray-50 dark:border-gray-800/50">
-                    <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+                    <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-pointer">
                       <ThumbsUp size={14} /> {post.likes}
                     </button>
-                    <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+                    <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-pointer">
                       <MessageCircle size={14} /> {post.comments}
                     </button>
                   </div>
@@ -332,7 +351,7 @@ export default function Home() {
                 />
                 <button
                   onClick={handleSendMessage}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-1.5 shrink-0"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
                 >
                   <Send size={14} /> 发送
                 </button>

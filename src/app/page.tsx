@@ -1,165 +1,289 @@
 "use client";
 
 import React, { useState } from "react";
-import { Shield, Sun, Moon, Phone, Video, Users, Lock, Send, MessageSquare } from "lucide-react";
+import { 
+  MessageSquare, 
+  LayoutGrid, 
+  Moon, 
+  Sun, 
+  Send, 
+  LogOut, 
+  ThumbsUp, 
+  MessageCircle 
+} from "lucide-react";
 
-export default function Page() {
+// 初始模拟动态数据
+const initialPosts = [
+  {
+    id: "post-1",
+    author: "Sky_distant",
+    avatar: "Sky",
+    date: "2026-09-10",
+    source: "来自 Sky-Blog 客户端",
+    content: "欢迎来到全新的 Sky-Blog 社区！这里将 QQ 的即时社交体验与 Hugo / Next.js 博客论坛完美融为一体。支持双色主题切换！",
+    likes: 12,
+    comments: 4,
+  },
+];
+
+// 初始模拟聊天数据
+const initialMessages = [
+  { id: "1", sender: "Sky_distant", content: "欢迎来到 Sky-Blog 客户端全员大群！", time: "22:12" },
+];
+
+export default function Home() {
+  const [activeTab, setActiveTab] = useState<"feed" | "chat">("feed");
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [message, setMessage] = useState("");
+  
+  // 动态数据与输入
+  const [posts, setPosts] = useState(initialPosts);
+  const [newPostContent, setNewPostContent] = useState("");
+
+  // 聊天数据与输入
+  const [messages, setMessages] = useState(initialMessages);
+  const [chatInput, setChatInput] = useState("");
+
+  // 动态去重逻辑：确保相同 id 的动态只渲染一次
+  const uniquePosts = posts.filter(
+    (post, index, self) => index === self.findIndex((p) => p.id === post.id)
+  );
+
+  // 发布新动态
+  const handlePublishPost = () => {
+    if (!newPostContent.trim()) return;
+    const newPost = {
+      id: `post-${Date.now()}`,
+      author: "zhangtianyuan120220",
+      avatar: "ZH",
+      date: new Date().toISOString().split("T")[0],
+      source: "来自 Sky-Blog 客户端",
+      content: newPostContent,
+      likes: 0,
+      comments: 0,
+    };
+    setPosts([newPost, ...posts]);
+    setNewPostContent("");
+  };
+
+  // 发送聊天消息
+  const handleSendMessage = () => {
+    if (!chatInput.trim()) return;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        sender: "我",
+        content: chatInput,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+    setChatInput("");
+  };
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: '100vh', 
-      backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
-      color: isDarkMode ? '#ffffff' : '#333333',
-      fontFamily: 'sans-serif'
-    }}>
-      {/* 顶部状态栏 */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 20px',
-        borderBottom: `1px solid ${isDarkMode ? '#333' : '#e0e0e0'}`,
-        backgroundColor: isDarkMode ? '#242424' : '#ffffff'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0099ff' }}></span>
-          <span>Sky-Blog 企业版 (E2EE + RBAC + WebRTC)</span>
-          <span title="端到端加密防护已开启" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'help' }}>
-            <Shield size={14} color="#10b981" />
-          </span>
+    <div className={`flex h-screen w-screen overflow-hidden ${isDarkMode ? "dark bg-gray-950 text-gray-100" : "bg-gray-100 text-gray-800"}`}>
+      
+      {/* 1. 最左侧导航栏 */}
+      <aside className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 justify-between shrink-0 select-none">
+        <div className="flex flex-col items-center gap-6">
+          {/* 用户头像 */}
+          <div className="w-10 h-10 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center text-sm shadow">
+            ZH
+          </div>
+
+          {/* 选项卡按钮 */}
+          <button
+            onClick={() => setActiveTab("feed")}
+            className={`p-3 rounded-xl transition-all ${
+              activeTab === "feed"
+                ? "bg-blue-600 text-white shadow-md"
+                : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+            title="社区动态"
+          >
+            <LayoutGrid size={20} />
+          </button>
+
+          <button
+            onClick={() => setActiveTab("chat")}
+            className={`p-3 rounded-xl transition-all ${
+              activeTab === "chat"
+                ? "bg-blue-600 text-white shadow-md"
+                : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+            title="即时通讯"
+          >
+            <MessageSquare size={20} />
+          </button>
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)} 
-            style={{
-              border: 'none',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: isDarkMode ? '#fff' : '#333',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '4px'
-            }}
+
+        {/* 底部退出/切换 */}
+        <div className="flex flex-col items-center gap-4">
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+          <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg">
+            <LogOut size={18} />
+          </button>
         </div>
-      </div>
+      </aside>
 
-      {/* 主界面核心区 */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* 左侧会话/导航栏 */}
-        <div style={{
-          width: '260px',
-          borderRight: `1px solid ${isDarkMode ? '#333' : '#e0e0e0'}`,
-          backgroundColor: isDarkMode ? '#1e1e1e' : '#fafafa',
-          padding: '16px'
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <MessageSquare size={18} />
-            <span>消息频道</span>
+      {/* 2. 主内容区域 */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden">
+        
+        {/* 顶部标题栏（客户端窗口拖拽区） */}
+        <header className="h-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
+          <div>Sky-Blog 客户端</div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+            <span>已连接服务</span>
           </div>
-          <div style={{
-            padding: '10px 12px',
-            borderRadius: '6px',
-            backgroundColor: isDarkMode ? '#2d2d2d' : '#e8f4ff',
-            color: '#0099ff',
-            cursor: 'pointer',
-            fontWeight: '500'
-          }}>
-            # 公开安全讨论组
-          </div>
-        </div>
+        </header>
 
-        {/* 右侧聊天主窗口 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {/* 聊天顶部控制条 */}
-          <div style={{
-            padding: '12px 20px',
-            borderBottom: `1px solid ${isDarkMode ? '#333' : '#e0e0e0'}`,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <div>
-              <span style={{ fontWeight: 'bold' }}># 公开安全讨论组</span>
-              <span style={{ fontSize: '12px', opacity: 0.6, marginLeft: '8px' }}>
-                (DFA 敏感词过滤已激活)
-              </span>
+        {/* 视图 1：社区动态 */}
+        {activeTab === "feed" && (
+          <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full space-y-6">
+            
+            {/* 发布动态卡片 */}
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3">
+              <textarea
+                value={newPostContent}
+                onChange={(e) => setNewPostContent(e.target.value)}
+                placeholder="以 zhangtianyuan120220@gmail.com 的身份分享你的想法..."
+                className="w-full h-24 bg-transparent resize-none outline-none text-sm placeholder-gray-400"
+              />
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+                <span className="text-xs text-gray-400">已登录: zhangtianyuan120220@gmail.com</span>
+                <button
+                  onClick={handlePublishPost}
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors"
+                >
+                  <Send size={14} /> 发布动态
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit' }}>
-                <Phone size={18} />
-              </button>
-              <button style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit' }}>
-                <Video size={18} />
-              </button>
-              <button style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit' }}>
-                <Users size={18} />
-              </button>
+
+            {/* 动态列表 */}
+            <div className="space-y-4">
+              {uniquePosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center text-xs">
+                      {post.avatar}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold">{post.author}</div>
+                      <div className="text-xs text-gray-400">
+                        {post.date} · {post.source}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    {post.content}
+                  </p>
+
+                  <div className="flex items-center gap-6 pt-2 text-xs text-gray-500 border-t border-gray-50 dark:border-gray-800/50">
+                    <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+                      <ThumbsUp size={14} /> {post.likes}
+                    </button>
+                    <button className="flex items-center gap-1.5 hover:text-blue-600 transition-colors">
+                      <MessageCircle size={14} /> {post.comments}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* 消息历史区域 */}
-          <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '12px', opacity: 0.6, marginBottom: '4px' }}>系统提示</div>
-              <div style={{
-                display: 'inline-block',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                backgroundColor: isDarkMode ? '#2a2a2a' : '#eef2f6',
-                fontSize: '13px'
-              }}>
-                <Lock size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                端到端加密通道建立成功，所有传输内容已在客户端完成密钥协商保护。
+        {/* 视图 2：即时通讯聊天频道 */}
+        {activeTab === "chat" && (
+          <div className="flex-1 flex h-full overflow-hidden bg-white dark:bg-gray-900">
+            
+            {/* 左侧频道列表 */}
+            <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col shrink-0">
+              <div className="p-4 font-bold text-sm border-b border-gray-200 dark:border-gray-800">
+                消息频道
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-600 cursor-pointer flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                    Sky
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="font-semibold text-sm truncate">全员大群</div>
+                    <div className="text-xs text-gray-400 truncate">
+                      {messages[messages.length - 1]?.content || "暂无新消息"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 右侧聊天窗口 */}
+            <div className="flex-1 flex flex-col h-full bg-gray-50 dark:bg-gray-950">
+              {/* 频道标题 */}
+              <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-semibold text-sm">
+                💬 全员交流大群
+              </div>
+
+              {/* 消息历史 */}
+              <div className="flex-1 p-6 overflow-y-auto space-y-4">
+                {messages.map((msg) => {
+                  const isMe = msg.sender === "我";
+                  return (
+                    <div key={msg.id} className={`flex gap-3 ${isMe ? "flex-row-reverse" : ""}`}>
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
+                          isMe ? "bg-green-600" : "bg-blue-600"
+                        }`}
+                      >
+                        {isMe ? "我" : "Sky"}
+                      </div>
+                      <div
+                        className={`max-w-md p-3.5 rounded-2xl text-sm shadow-sm ${
+                          isMe
+                            ? "bg-blue-600 text-white rounded-tr-none"
+                            : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-tl-none"
+                        }`}
+                      >
+                        <div className="text-[10px] opacity-70 mb-1">{msg.sender} · {msg.time}</div>
+                        <div>{msg.content}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 底部发送框 */}
+              <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-3">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                  placeholder="输入消息，按 Enter 发送..."
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-1.5"
+                >
+                  <Send size={14} /> 发送
+                </button>
               </div>
             </div>
           </div>
+        )}
 
-          {/* 底部消息输入框 */}
-          <div style={{
-            padding: '16px 20px',
-            borderTop: `1px solid ${isDarkMode ? '#333' : '#e0e0e0'}`
-          }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="发送加密消息..."
-                style={{
-                  flex: 1,
-                  padding: '10px 14px',
-                  borderRadius: '6px',
-                  border: `1px solid ${isDarkMode ? '#444' : '#ccc'}`,
-                  backgroundColor: isDarkMode ? '#2a2a2a' : '#ffffff',
-                  color: 'inherit',
-                  outline: 'none'
-                }}
-              />
-              <button style={{
-                padding: '0 16px',
-                borderRadius: '6px',
-                backgroundColor: '#0099ff',
-                color: '#fff',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <Send size={16} />
-                <span>发送</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }

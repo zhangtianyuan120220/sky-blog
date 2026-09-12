@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "push": "git add . && git commit -m \"update code\" && git push"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

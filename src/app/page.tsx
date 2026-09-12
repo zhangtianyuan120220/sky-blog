@@ -9,7 +9,10 @@ import {
   Send, 
   LogOut, 
   ThumbsUp, 
-  MessageCircle 
+  MessageCircle,
+  Minus,
+  Square,
+  X
 } from "lucide-react";
 
 const initialPosts = [
@@ -46,11 +49,39 @@ export default function Home() {
 
   if (!mounted) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-100 text-gray-500 font-sans">
+      <div className="h-screen w-screen flex items-center justify-center bg-gray-100 text-gray-500 font-sans select-none">
         Sky-Blog 客户端加载中...
       </div>
     );
   }
+
+  // 窗口控制函数
+  const handleMinimize = async () => {
+    try {
+      const { appWindow } = await import("@tauri-apps/api/window");
+      await appWindow.minimize();
+    } catch {
+      console.log("Minimize is only available in Tauri app");
+    }
+  };
+
+  const handleToggleMaximize = async () => {
+    try {
+      const { appWindow } = await import("@tauri-apps/api/window");
+      await appWindow.toggleMaximize();
+    } catch {
+      console.log("Maximize is only available in Tauri app");
+    }
+  };
+
+  const handleClose = async () => {
+    try {
+      const { appWindow } = await import("@tauri-apps/api/window");
+      await appWindow.close();
+    } catch {
+      console.log("Close is only available in Tauri app");
+    }
+  };
 
   const uniquePosts = posts.filter(
     (post, index, self) => index === self.findIndex((p) => p.id === post.id)
@@ -124,11 +155,12 @@ export default function Home() {
         <div className="flex flex-col items-center gap-4">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+            className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            title="切换主题"
           >
             {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg">
+          <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors">
             <LogOut size={18} />
           </button>
         </div>
@@ -137,19 +169,46 @@ export default function Home() {
       {/* 主界面区域 */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* 顶部 Header */}
-        <header className="h-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
-          <div>Sky-Blog 客户端</div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            <span>已连接服务</span>
+        {/* 可拖拽的顶部 Header & 窗口控制按钮 */}
+        <header 
+          data-tauri-drag-region 
+          className="h-9 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between pl-4 pr-1 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0 select-none cursor-default"
+        >
+          <div data-tauri-drag-region className="flex items-center gap-2 pointer-events-none">
+            <span>Sky-Blog 客户端</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+            <span className="text-[10px] opacity-70">已连接服务</span>
+          </div>
+
+          {/* 窗口控制按钮组 */}
+          <div className="flex items-center">
+            <button
+              onClick={handleMinimize}
+              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              title="最小化"
+            >
+              <Minus size={13} />
+            </button>
+            <button
+              onClick={handleToggleMaximize}
+              className="w-9 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              title="最大化 / 还原"
+            >
+              <Square size={11} />
+            </button>
+            <button
+              onClick={handleClose}
+              className="w-9 h-8 flex items-center justify-center hover:bg-red-500 hover:text-white text-gray-500 dark:text-gray-400 transition-colors"
+              title="关闭"
+            >
+              <X size={14} />
+            </button>
           </div>
         </header>
 
         {/* 动态 Feed 选项卡 */}
         {activeTab === "feed" && (
           <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full space-y-6">
-            
             <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3">
               <textarea
                 value={newPostContent}
@@ -204,13 +263,12 @@ export default function Home() {
           </div>
         )}
 
-        {/* 即时聊天选项卡 (已修正底端 overflow 布局) */}
+        {/* 即时聊天选项卡 */}
         {activeTab === "chat" && (
           <div className="flex-1 flex min-h-0 overflow-hidden bg-white dark:bg-gray-900">
-            
             {/* 左侧频道列表 */}
             <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col shrink-0">
-              <div className="p-4 font-bold text-sm border-b border-gray-200 dark:border-gray-800 shrink-0">
+              <div className="p-4 font-bold text-sm border-b border-gray-200 dark:border-gray-800 shrink-0 select-none">
                 消息频道
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -230,7 +288,7 @@ export default function Home() {
 
             {/* 右侧聊天窗口 */}
             <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-950">
-              <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-semibold text-sm shrink-0">
+              <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-semibold text-sm shrink-0 select-none">
                 💬 全员交流大群
               </div>
 
@@ -262,7 +320,7 @@ export default function Home() {
                 })}
               </div>
 
-              {/* 底部输入发送栏 (固定防被挤压) */}
+              {/* 底部输入发送栏 */}
               <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-3 shrink-0">
                 <input
                   type="text"

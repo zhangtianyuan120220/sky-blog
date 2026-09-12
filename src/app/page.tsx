@@ -55,11 +55,11 @@ export default function Home() {
     );
   }
 
-  // 窗口控制函数
+  // 适配 Tauri v2 的窗口控制函数
   const handleMinimize = async () => {
     try {
-      const { appWindow } = await import("@tauri-apps/api/window");
-      await appWindow.minimize();
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().minimize();
     } catch {
       console.log("Minimize is only available in Tauri app");
     }
@@ -67,8 +67,8 @@ export default function Home() {
 
   const handleToggleMaximize = async () => {
     try {
-      const { appWindow } = await import("@tauri-apps/api/window");
-      await appWindow.toggleMaximize();
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().toggleMaximize();
     } catch {
       console.log("Maximize is only available in Tauri app");
     }
@@ -76,8 +76,8 @@ export default function Home() {
 
   const handleClose = async () => {
     try {
-      const { appWindow } = await import("@tauri-apps/api/window");
-      await appWindow.close();
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().close();
     } catch {
       console.log("Close is only available in Tauri app");
     }

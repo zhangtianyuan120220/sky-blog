@@ -37,7 +37,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # 如果是 Android 构建，需要配置 Java (JDK) 和 Android SDK 环境变量
+      # 如果是 Android 构建，配置 Java (JDK) 和 Android SDK 环境
       - name: Setup Java (Android)
         if: matrix.name == 'android'
         uses: actions/setup-java@v4
@@ -78,14 +78,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Android 手机端打包命令 (Tauri v2)
+      # Android 手机端打包命令 (Tauri v2 默认会处理 release 构建，去掉错误的 --release 参数)
       - name: Build Android App
         if: matrix.name == 'android'
-        run: npx tauri android build --release
+        run: npx tauri android build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 可选：如果你希望将 Android 编译好的 APK 资产也一同自动上传到 Release
+      # 将 Android 编译好的 APK 资产一同自动上传到 Release
       - name: Upload Android Artifact to Release
         if: matrix.name == 'android'
         uses: softprops/action-gh-release@v2

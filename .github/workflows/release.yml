@@ -27,8 +27,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm' # 开启云端 npm 缓存，加快依赖安装速度
 
-      # 替换为 npm install --legacy-peer-deps 解决锁文件不同步和 peer 依赖冲突
+      # 执行依赖安装，并在编译前保证所有依赖库就位
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 

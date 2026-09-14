@@ -78,14 +78,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Android 手机端：直接执行无参数初始化
+      # Android 手机端：初始化
       - name: Init Android Project
         if: matrix.name == 'android'
-        run: npx tauri android init
+        run: npx @tauri-apps/cli android init
 
+      # Android 手机端：使用显式的完整包名调用，避免 npm script 缺失报错
       - name: Build Android App
         if: matrix.name == 'android'
-        run: npx tauri android build
+        run: npx @tauri-apps/cli android build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

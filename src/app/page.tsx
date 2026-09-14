@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -56,6 +56,10 @@ interface ChatMessage {
   time: string;
 }
 
+// 辅助函数：生成抗碰撞的唯一 ID
+const generateId = (prefix: string) => 
+  `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"feed" | "chat" | "profile">("feed");
@@ -78,6 +82,14 @@ export default function Home() {
   // 3. 真实聊天消息状态
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // 4. 自动滚动聊天到底部
+  useEffect(() => {
+    if (activeTab === "chat") {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, activeTab]);
 
   // 初始化加载：从 localStorage 读取用户配置，并加载博文
   useEffect(() => {
@@ -92,7 +104,7 @@ export default function Home() {
     // 默认提供一篇包含 KaTeX 公式渲染演示的示例博文
     setPosts([
       {
-        id: "post-demo-1",
+        id: generateId("post-demo"),
         author: "Sky_distant",
         avatar: "SK",
         date: new Date().toISOString().split("T")[0],
@@ -102,7 +114,7 @@ export default function Home() {
         isLiked: false,
         comments: [
           {
-            id: "c-1",
+            id: generateId("c-demo"),
             author: "Alice",
             avatar: "AL",
             date: "10:30",
@@ -139,14 +151,14 @@ export default function Home() {
     );
   }
 
-  // 窗口控制逻辑 (Tauri 集成)
+  // 窗口控制逻辑 (Tauri 安全集成)
   const handleStartDrag = async (e: React.MouseEvent) => {
     if (e.button === 0) {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         await getCurrentWindow().startDragging();
       } catch (err) {
-        console.error(err);
+        // 浏览器环境运行时的回退逻辑
       }
     }
   };
@@ -157,7 +169,7 @@ export default function Home() {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().minimize();
     } catch (err) {
-      console.error(err);
+      console.log("非 Tauri 环境，忽略最小化");
     }
   };
 
@@ -167,7 +179,7 @@ export default function Home() {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().toggleMaximize();
     } catch (err) {
-      console.error(err);
+      console.log("非 Tauri 环境，忽略最大化");
     }
   };
 
@@ -177,7 +189,7 @@ export default function Home() {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().close();
     } catch (err) {
-      console.error(err);
+      console.log("非 Tauri 环境，忽略关闭");
     }
   };
 
@@ -201,7 +213,7 @@ export default function Home() {
     if (!newPostContent.trim()) return;
 
     const newPost: Post = {
-      id: `post-${Date.now()}`,
+      id: generateId("post"),
       author: nickname,
       avatar: nickname.slice(0, 2).toUpperCase(),
       date: new Date().toISOString().split("T")[0],
@@ -247,7 +259,7 @@ export default function Home() {
     if (!commentInput.trim()) return;
 
     const newComment: Comment = {
-      id: `c-${Date.now()}`,
+      id: generateId("c"),
       author: nickname,
       avatar: nickname.slice(0, 2).toUpperCase(),
       content: commentInput,
@@ -274,7 +286,7 @@ export default function Home() {
     setMessages((prev) => [
       ...prev,
       {
-        id: Date.now().toString(),
+        id: generateId("msg"),
         sender: nickname,
         content: chatInput,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -462,8 +474,8 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Markdown + KaTeX 数学公式渲染关键逻辑 */}
-                    <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    {/* Markdown + KaTeX 数学公式渲染关键逻辑（加了 overflow-x-auto 防截断） */}
+                    <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 overflow-x-auto">
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm, remarkMath]} 
                         rehypePlugins={[rehypeKatex]}
@@ -506,15 +518,15 @@ export default function Home() {
                           ) : (
                             post.comments.map((comment) => (
                               <div key={comment.id} className="text-xs flex gap-2 border-b border-gray-100 dark:border-gray-800/60 pb-2">
-                                <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                <span className="font-semibold text-blue-600 dark:text-blue-400 shrink-0">
                                   {comment.author}:
                                 </span>
-                                <div className="text-gray-700 dark:text-gray-300 flex-1">
+                                <div className="text-gray-700 dark:text-gray-300 flex-1 overflow-x-auto">
                                   <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                                     {comment.content}
                                   </ReactMarkdown>
                                 </div>
-                                <span className="text-[10px] text-gray-400">{comment.date}</span>
+                                <span className="text-[10px] text-gray-400 shrink-0">{comment.date}</span>
                               </div>
                             ))
                           )}
@@ -595,7 +607,7 @@ export default function Home() {
                           }`}
                         >
                           <div className="text-[10px] opacity-70 mb-1">{msg.sender} · {msg.time}</div>
-                          <div className="prose dark:prose-invert text-sm max-w-none">
+                          <div className="prose dark:prose-invert text-sm max-w-none overflow-x-auto">
                             <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                               {msg.content}
                             </ReactMarkdown>
@@ -605,6 +617,8 @@ export default function Home() {
                     );
                   })
                 )}
+                {/* 滚动锚点 */}
+                <div ref={chatEndRef} />
               </div>
 
               <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-3 shrink-0">

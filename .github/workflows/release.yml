@@ -78,7 +78,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Android 手机端打包命令 (Tauri v2 默认会处理 release 构建，去掉错误的 --release 参数)
+      # Android 手机端：必须先执行初始化生成 gen/android 目录，再进行编译
+      - name: Init Android Project
+        if: matrix.name == 'android'
+        run: npx tauri android init --yes
+
       - name: Build Android App
         if: matrix.name == 'android'
         run: npx tauri android build

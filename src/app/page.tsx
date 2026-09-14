@@ -25,8 +25,11 @@ import {
   Edit3,
   CheckCircle2,
   RefreshCw,
-  Sigma
+  Sigma,
+  ShieldAlert
 } from "lucide-react";
+
+import { supabase } from "@/utils/supabase";
 
 // 数据结构定义
 interface Comment {
@@ -62,13 +65,16 @@ const generateId = (prefix: string) =>
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"feed" | "chat" | "profile">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "chat" | "profile" | "admin">("feed");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Supabase 会话与用户档案状态
+  const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+
   // 1. 个人用户系统状态
-  const [nickname, setNickname] = useState<string>("");
-  const [bio, setBio] = useState<string>("");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [tempNickname, setTempNickname] = useState("");
   const [tempBio, setTempBio] = useState("");
@@ -91,41 +97,107 @@ export default function Home() {
     }
   }, [messages, activeTab]);
 
-  // 初始化加载：从 localStorage 读取用户配置，并加载博文
+  // 初始化加载：Supabase 自动登录与数据同步
   useEffect(() => {
     setMounted(true);
-    
-    // 读取本地保存的用户昵称
-    const savedNickname = localStorage.getItem("sky_blog_nickname") || "用户" + Math.floor(1000 + Math.random() * 9000);
-    const savedBio = localStorage.getItem("sky_blog_bio") || "代码与星空，皆不可辜负。";
-    setNickname(savedNickname);
-    setBio(savedBio);
 
-    // 默认提供一篇包含 KaTeX 公式渲染演示的示例博文
-    setPosts([
-      {
-        id: generateId("post-demo"),
-        author: "Sky_distant",
-        avatar: "SK",
-        date: new Date().toISOString().split("T")[0],
-        source: "Sky-Blog 桌面端",
-        content: `### 傅里叶变换与数学公式渲染测试\n\n欢迎使用 **Sky-Blog 客户端**！本编辑器现已支持 Markdown 与 KaTeX 数学公式原生渲染。\n\n#### 行内公式 (Inline Math)\n质能方程为 $E = mc^2$，欧拉公式为 $e^{i\\pi} + 1 = 0$。\n\n#### 块级公式 (Block Math)\n连续傅里叶变换 (Fourier Transform) 表达如下：\n$$\n\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx\n$$\n\n算法复杂度：$\\mathcal{O}(n \\log n)$，非常适合处理信号与数据分析。`,
-        likes: 12,
-        isLiked: false,
-        comments: [
-          {
-            id: generateId("c-demo"),
-            author: "Alice",
-            avatar: "AL",
-            date: "10:30",
-            content: "KaTeX 公式渲染效果真清晰！"
-          }
-        ]
+    async function initAuthAndData() {
+      // 1. 检查当前本地会话
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      
+      let currentSession = existingSession;
+
+      if (!currentSession) {
+        // 如果没有会话，自动以管理员身份登录
+        const { data: signInData } = await supabase.auth.signInWithPassword({
+          email: 'Sky_distant@example.com',
+          password: 'shuaishuai170314',
+        });
+
+        if (signInData?.session) {
+          currentSession = signInData.session;
+        } else {
+          // 如果账号尚未注册，自动注册一次
+          const { data: signUpData } = await supabase.auth.signUp({
+            email: 'Sky_distant@example.com',
+            password: 'shuaishuai170314',
+            options: { data: { username: 'Sky_distant' } }
+          });
+          if (signUpData?.session) currentSession = signUpData.session;
+        }
       }
-    ]);
 
-    fetchPosts();
+      setSession(currentSession);
+
+      if (currentSession?.user) {
+        fetchUserProfile(currentSession.user.id);
+      }
+
+      // 默认提供一篇包含 KaTeX 公式渲染演示的示例博文
+      setPosts([
+        {
+          id: generateId("post-demo"),
+          author: "Sky_distant",
+          avatar: "SK",
+          date: new Date().toISOString().split("T")[0],
+          source: "Sky-Blog 客户端",
+          content: `### 傅里叶变换与数学公式渲染测试\n\n欢迎使用 **Sky-Blog 客户端**！本编辑器现已支持 Markdown 与 KaTeX 数学公式原生渲染。\n\n#### 行内公式 (Inline Math)\n质能方程为 $E = mc^2$，欧拉公式为 $e^{i\\pi} + 1 = 0$。\n\n#### 块级公式 (Block Math)\n连续傅里叶变换 (Fourier Transform) 表达如下：\n$$\n\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx\n$$\n\n算法复杂度：$\\mathcal{O}(n \\log n)$，非常适合处理信号与数据分析。`,
+          likes: 12,
+          isLiked: false,
+          comments: [
+            {
+              id: generateId("c-demo"),
+              author: "Alice",
+              avatar: "AL",
+              date: "10:30",
+              content: "KaTeX 公式渲染效果真清晰！"
+            }
+          ]
+        }
+      ]);
+
+      fetchPosts();
+    }
+
+    initAuthAndData();
   }, []);
+
+  // 获取用户档案
+  const fetchUserProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (data) {
+      setProfile(data);
+      if (data.role === 'super_admin' || data.role === 'admin') {
+        fetchAllUsers();
+      }
+    }
+  };
+
+  // 管理员：获取所有用户
+  const fetchAllUsers = async () => {
+    const { data } = await supabase.from('profiles').select('*').order('user_id', { ascending: true });
+    if (data) setAllUsers(data);
+  };
+
+  // 超级管理员：修改用户权限
+  const handleUpdateRole = async (targetUserId: string, newRole: string) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: newRole })
+      .eq('id', targetUserId);
+
+    if (!error) {
+      alert('用户权限更新成功！');
+      fetchAllUsers();
+    } else {
+      alert('更新失败: ' + error.message);
+    }
+  };
 
   // 从远程 API / Hugo 博客 Fetch 数据
   const fetchPosts = async () => {
@@ -193,14 +265,22 @@ export default function Home() {
     }
   };
 
-  // 保存个人资料
-  const handleSaveProfile = () => {
-    if (!tempNickname.trim()) return;
-    setNickname(tempNickname.trim());
-    setBio(tempBio);
-    localStorage.setItem("sky_blog_nickname", tempNickname.trim());
-    localStorage.setItem("sky_blog_bio", tempBio);
-    setIsEditingProfile(false);
+  // 保存个人资料到 Supabase
+  const handleSaveProfile = async () => {
+    if (!tempNickname.trim() || !profile) return;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username: tempNickname.trim(), bio: tempBio })
+      .eq('id', profile.id);
+
+    if (!error) {
+      setProfile({ ...profile, username: tempNickname.trim(), bio: tempBio });
+      setIsEditingProfile(false);
+      alert('资料更新成功！');
+    } else {
+      alert('更新失败: ' + error.message);
+    }
   };
 
   // 插入数学公式快捷语法
@@ -212,6 +292,7 @@ export default function Home() {
   const handlePublishPost = async () => {
     if (!newPostContent.trim()) return;
 
+    const nickname = profile?.username || "用户";
     const newPost: Post = {
       id: generateId("post"),
       author: nickname,
@@ -258,6 +339,7 @@ export default function Home() {
   const handleAddComment = (postId: string) => {
     if (!commentInput.trim()) return;
 
+    const nickname = profile?.username || "用户";
     const newComment: Comment = {
       id: generateId("c"),
       author: nickname,
@@ -283,6 +365,7 @@ export default function Home() {
   // 发送聊天消息
   const handleSendMessage = () => {
     if (!chatInput.trim()) return;
+    const nickname = profile?.username || "用户";
     setMessages((prev) => [
       ...prev,
       {
@@ -295,6 +378,8 @@ export default function Home() {
     setChatInput("");
   };
 
+  const nickname = profile?.username || "加载中...";
+
   return (
     <div className={`flex h-screen w-screen overflow-hidden ${isDarkMode ? "dark bg-gray-950 text-gray-100" : "bg-gray-100 text-gray-800"}`}>
       
@@ -303,10 +388,14 @@ export default function Home() {
         <div className="flex flex-col items-center gap-6">
           <button 
             onClick={() => setActiveTab("profile")}
-            className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow hover:opacity-90 transition-opacity cursor-pointer"
+            className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow hover:opacity-90 transition-opacity cursor-pointer overflow-hidden"
             title="个人主页"
           >
-            {nickname ? nickname.slice(0, 2).toUpperCase() : "ME"}
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="头像" className="w-full h-full object-cover" />
+            ) : (
+              nickname ? nickname.slice(0, 2).toUpperCase() : "ME"
+            )}
           </button>
 
           <button
@@ -328,7 +417,7 @@ export default function Home() {
                 ? "bg-blue-600 text-white shadow-md"
                 : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
             }`}
-            title="即时通讯"
+            title="即时通讯与社区服务"
           >
             <MessageSquare size={20} />
           </button>
@@ -344,6 +433,20 @@ export default function Home() {
           >
             <User size={20} />
           </button>
+
+          {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+            <button
+              onClick={() => setActiveTab("admin")}
+              className={`p-3 rounded-xl transition-all ${
+                activeTab === "admin"
+                  ? "bg-red-600 text-white shadow-md"
+                  : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+              title="管理后台"
+            >
+              <ShieldAlert size={20} />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col items-center gap-4">
@@ -372,7 +475,7 @@ export default function Home() {
           <div className="flex items-center gap-2 pointer-events-none">
             <span>Sky-Blog 客户端</span>
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
-            <span className="text-[10px] opacity-70">用户: {nickname || "未设置"}</span>
+            <span className="text-[10px] opacity-70">用户: {nickname}</span>
           </div>
 
           <div 
@@ -474,7 +577,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Markdown + KaTeX 数学公式渲染关键逻辑（加了 overflow-x-auto 防截断） */}
+                    {/* Markdown + KaTeX 数学公式渲染关键逻辑 */}
                     <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 overflow-x-auto">
                       <ReactMarkdown 
                         remarkPlugins={[remarkGfm, remarkMath]} 
@@ -557,7 +660,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 2. 即时通讯页面 */}
+        {/* 2. 即时通讯与社区服务页面 */}
         {activeTab === "chat" && (
           <div className="flex-1 flex min-h-0 overflow-hidden bg-white dark:bg-gray-900">
             <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col shrink-0">
@@ -581,7 +684,7 @@ export default function Home() {
 
             <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-950">
               <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-semibold text-sm shrink-0 select-none">
-                💬 公开交流频道 (支持公式)
+                💬 即时通讯与社区服务频道 (支持公式)
               </div>
 
               <div className="flex-1 p-6 overflow-y-auto space-y-4 min-h-0">
@@ -652,8 +755,8 @@ export default function Home() {
                 {!isEditingProfile ? (
                   <button
                     onClick={() => {
-                      setTempNickname(nickname);
-                      setTempBio(bio);
+                      setTempNickname(profile?.username || "");
+                      setTempBio(profile?.bio || "");
                       setIsEditingProfile(true);
                     }}
                     className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 rounded-xl text-xs font-medium flex items-center gap-1 hover:bg-blue-100 transition-colors cursor-pointer"
@@ -671,8 +774,12 @@ export default function Home() {
               </div>
 
               <div className="flex items-start gap-6">
-                <div className="w-20 h-20 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-2xl shadow-md shrink-0">
-                  {nickname ? nickname.slice(0, 2).toUpperCase() : "ME"}
+                <div className="w-20 h-20 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-2xl shadow-md shrink-0 overflow-hidden">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    nickname ? nickname.slice(0, 2).toUpperCase() : "ME"
+                  )}
                 </div>
 
                 <div className="flex-1 space-y-4">
@@ -699,11 +806,19 @@ export default function Home() {
                   ) : (
                     <>
                       <div>
-                        <h3 className="text-xl font-bold">{nickname || "未设置昵称"}</h3>
-                        <p className="text-xs text-gray-400 mt-1">Status: 本地配置已生效</p>
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-xl font-bold">{nickname}</h3>
+                          <span className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
+                            profile?.role === 'super_admin' ? 'bg-red-500/20 text-red-400' :
+                            profile?.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            {profile?.role === 'super_admin' ? '👑 超级管理员' : profile?.role === 'admin' ? '🛡️ 管理员' : '⭐ 普通用户'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-mono text-blue-400 mt-1">用户 ID: {profile?.user_id || "加载中..."}</p>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed bg-gray-50 dark:bg-gray-950 p-3 rounded-xl">
-                        {bio || "暂无个性签名"}
+                        {profile?.bio || "暂无个性签名"}
                       </p>
                     </>
                   )}
@@ -729,6 +844,59 @@ export default function Home() {
                     <div className="text-xs text-gray-400 mt-1">获得赞数</div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. 超级管理员权限控制台 */}
+        {activeTab === "admin" && profile?.role === 'super_admin' && (
+          <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                👑 超级管理员权限配置面板
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-400 text-sm">
+                      <th className="py-3 px-4">用户 ID</th>
+                      <th className="py-3 px-4">用户名</th>
+                      <th className="py-3 px-4">当前身份</th>
+                      <th className="py-3 px-4">修改权限</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allUsers.map((u) => (
+                      <tr key={u.id} className="border-b border-gray-100 dark:border-gray-800/40 hover:bg-gray-50 dark:hover:bg-gray-950/40">
+                        <td className="py-3 px-4 font-mono text-blue-600 dark:text-blue-400">{u.user_id}</td>
+                        <td className="py-3 px-4 flex items-center gap-3">
+                          <img src={u.avatar_url} className="w-8 h-8 rounded-full object-cover" />
+                          <span className="font-medium">{u.username}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                            u.role === 'super_admin' ? 'bg-red-500/20 text-red-400' :
+                            u.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                          }`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <select 
+                            value={u.role}
+                            onChange={(e) => handleUpdateRole(u.id, e.target.value)}
+                            className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 text-gray-800 dark:text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+                          >
+                            <option value="user">普通用户</option>
+                            <option value="admin">普通管理员</option>
+                            <option value="super_admin">超级管理员</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

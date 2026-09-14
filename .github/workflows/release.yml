@@ -1,4 +1,4 @@
-name: Release App
+name: Release All Platforms
 
 on:
   push:
@@ -14,8 +14,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            name: linux
           - os: windows-latest
-          - os: macos-latest # 支持 macOS 构建
+            name: windows
+          - os: macos-latest
+            name: macos
+          - os: ubuntu-latest
+            name: android
 
     runs-on: ${{ matrix.os }}
 
@@ -27,16 +32,65 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm' # 开启云端 npm 缓存，加快依赖安装速度
+          cache: 'npm'
 
-      # 执行依赖安装，并在编译前保证所有依赖库就位
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # 如果是 Android 构建，需要配置 Java (JDK) 和 Android SDK 环境变量
+      - name: Setup Java (Android)
+        if: matrix.name == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        if: matrix.name == 'android'
+        uses: android-actions/setup-android@v3
+
+      # 针对 Linux 桌面端与 Android 编译所需的系统依赖
+      - name: Install System Dependencies (Linux/Android)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
       - name: Build Next.js App
         run: npm run build
 
-      - name: Build & Publish App
+      # 桌面端打包命令
+      - name: Build Desktop App
+        if: matrix.name != 'android'
         run: npm run publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Android 手机端打包命令 (Tauri v2)
+      - name: Build Android App
+        if: matrix.name == 'android'
+        run: npx tauri android build --release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 可选：如果你希望将 Android 编译好的 APK 资产也一同自动上传到 Release
+      - name: Upload Android Artifact to Release
+        if: matrix.name == 'android'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/gen/android/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

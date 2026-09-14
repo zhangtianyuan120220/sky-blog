@@ -1,13 +1,14 @@
 {
   "name": "sky-blog",
-  "version": "1.0.10",
+  "version": "1.0.7",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "publish": "tauri build"
+    "publish": "tauri build",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.8",

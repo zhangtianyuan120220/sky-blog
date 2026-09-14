@@ -78,10 +78,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Android 手机端：使用 -f 强制非交互式初始化
+      # Android 手机端：直接执行无参数初始化
       - name: Init Android Project
         if: matrix.name == 'android'
-        run: npx tauri android init -f
+        run: npx tauri android init
 
       - name: Build Android App
         if: matrix.name == 'android'

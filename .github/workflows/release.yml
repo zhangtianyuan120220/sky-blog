@@ -8,6 +8,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name (e.g. v1.0.0)'
+        required: true
+        type: string
 
 jobs:
   release-desktop:
@@ -21,6 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,9 +37,6 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
 
       - name: Install System Dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -60,8 +64,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'App ${{ github.ref_name }}'
+          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          releaseName: 'App ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}'
           releaseBody: 'Automated release for desktop platforms.'
           releaseDraft: false
           prerelease: false
@@ -74,6 +78,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -85,9 +91,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
-
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
 
       - name: Setup Java (Android)
         uses: actions/setup-java@v4
@@ -101,11 +104,9 @@ jobs:
           accept-android-sdk-licenses: true
           packages: ''
 
-      - name: Install Required SDK & NDK Packages
+      - name: Install Required SDK Packages
         run: |
-          # 自动接受所有许可协议并安装所需的 NDK 与 Platform 工具
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
+          sdkmanager "platform-tools"
 
       - name: Install System Dependencies
         run: |
@@ -127,12 +128,11 @@ jobs:
       - name: Build Next.js App
         run: npm run build
 
+      - name: Init Android Project
+        run: npx @tauri-apps/cli android init
+
       - name: Build Android App
-        # 设置 NDK 环境变量供 Rust 交叉编译器读取；加上 init 容错
-        run: |
-          export NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
-          npx @tauri-apps/cli android init || true
-          npx @tauri-apps/cli android build
+        run: npx @tauri-apps/cli android build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -141,5 +141,6 @@ jobs:
         with:
           files: |
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

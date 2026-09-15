@@ -38,8 +38,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      # 使用 npm install 替代 npm ci，防止 package-lock.json 不匹配导致构建直接中断
       - name: Install app dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build and Release Desktop App
         uses: tauri-apps/tauri-action@v0
@@ -83,8 +84,9 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
+      # 使用 npm install 替代 npm ci，兼容动态变化的 package.json 依赖
       - name: Install app dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Android APK
         uses: tauri-apps/tauri-action@v0

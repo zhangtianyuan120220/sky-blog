@@ -92,9 +92,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 使用替代的 NDK Action，解决已失效的 repository 报错
+      # 换用稳定可用的 nttld/setup-ndk@v1
       - name: Setup Android NDK
-        uses: nkirchhoff/setup-ndk@v1
+        uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r25c

@@ -31,6 +31,9 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
       - name: Install System Dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -83,6 +86,9 @@ jobs:
         with:
           targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
 
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
       - name: Setup Java (Android)
         uses: actions/setup-java@v4
         with:
@@ -93,13 +99,13 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: true
-          # 设置为空，跳过默认会安装的过时 'tools' 包
           packages: ''
 
-      - name: Install Required SDK Packages
+      - name: Install Required SDK & NDK Packages
         run: |
-          # 只安装实际需要的现代包
-          sdkmanager "platform-tools"
+          # 自动接受所有许可协议并安装所需的 NDK 与 Platform 工具
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
 
       - name: Install System Dependencies
         run: |
@@ -122,7 +128,11 @@ jobs:
         run: npm run build
 
       - name: Build Android App
-        run: npx @tauri-apps/cli android build
+        # 设置 NDK 环境变量供 Rust 交叉编译器读取；加上 init 容错
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
+          npx @tauri-apps/cli android init || true
+          npx @tauri-apps/cli android build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

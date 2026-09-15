@@ -1,53 +1,96 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/utils/supabase';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 // ----------------- 类型定义 -----------------
+interface AvatarFrame {
+  id: string;
+  name: string;
+  borderClass: string;
+}
+
 interface User {
   id: string;
   name: string;
-  email?: string;
+  email: string;
+  bio?: string;
+  avatarFrameId?: string;
+  createdAt: string;
+}
+
+interface Comment {
+  id: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
 }
 
 interface Post {
   id: string;
+  authorId: string;
   authorName: string;
+  authorFrameId?: string;
   createdAt: string;
   content: string;
   likes: number;
-  commentsCount: number;
+  likedBy: string[]; // 防止重复点赞
+  comments: Comment[];
 }
 
+// 头像框预设
+const AVATAR_FRAMES: AvatarFrame[] = [
+  { id: 'none', name: '无边框', borderClass: 'border-transparent' },
+  { id: 'gold', name: '荣耀金色', borderClass: 'border-4 border-amber-400 ring-2 ring-amber-200' },
+  { id: 'cyber', name: '霓虹赛博', borderClass: 'border-4 border-cyan-400 shadow-[0_0_10px_#06b6d4]' },
+  { id: 'purple', name: '星空幻紫', borderClass: 'border-4 border-purple-500 ring-2 ring-purple-300' },
+  { id: 'fire', name: '烈焰红极', borderClass: 'border-4 border-rose-500 shadow-[0_0_8px_#f43f5e]' },
+];
+
 export default function Home() {
-  // 1. 用户认证状态（初始为 null，无默认账号）
+  // ----------------- 页面与用户状态 -----------------
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
 
-  // 2. 博客数据列表（初始为空数组 []，无默认样例）
+  // ----------------- 认证表单状态 -----------------
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [formName, setFormName] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+
+  // ----------------- 博客/搜索/编辑状态 -----------------
   const [posts, setPosts] = useState<Post[]>([]);
-
-  // 3. 发布框与编辑器状态
+  const [searchQuery, setSearchQuery] = useState('');
   const [content, setContent] = useState<string>('');
+  const [isPreview, setIsPreview] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
 
-  // 4. 登录/注册表单输入状态
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginName, setLoginName] = useState('');
+  // ----------------- 评论框状态 -----------------
+  const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
 
-  // 初始化检查登录状态与加载本地数据
+  // ----------------- 个人主页设置状态 -----------------
+  const [editBio, setEditBio] = useState('');
+  const [selectedFrame, setSelectedFrame] = useState('none');
+
+  // 初始化检查登录与数据加载
   useEffect(() => {
-    const initAuth = () => {
+    const initData = () => {
       try {
         const savedUser = localStorage.getItem('sky_blog_user');
         if (savedUser) {
-          setUser(JSON.parse(savedUser));
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          setEditBio(parsedUser.bio || '');
+          setSelectedFrame(parsedUser.avatarFrameId || 'none');
         }
         const savedPosts = localStorage.getItem('sky_blog_posts');
         if (savedPosts) {
           setPosts(JSON.parse(savedPosts));
-        } else {
-          setPosts([]);
         }
       } catch (e) {
         console.error('初始化数据读取失败:', e);
@@ -56,84 +99,193 @@ export default function Home() {
       }
     };
 
-    initAuth();
+    initData();
   }, []);
 
-  // 保存帖子数据到 LocalStorage
   const savePostsToStorage = (updatedPosts: Post[]) => {
     setPosts(updatedPosts);
     localStorage.setItem('sky_blog_posts', JSON.stringify(updatedPosts));
   };
 
-  // 处理登录
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginName.trim()) {
-      alert('请输入用户名！');
-      return;
-    }
-    const newUser: User = {
-      id: 'user_' + Date.now(),
-      name: loginName.trim(),
-      email: loginEmail.trim() || undefined,
-    };
-    setUser(newUser);
-    localStorage.setItem('sky_blog_user', JSON.stringify(newUser));
-    setLoginName('');
-    setLoginEmail('');
+  const saveUserToStorage = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('sky_blog_user', JSON.stringify(updatedUser));
   };
 
-  // 处理退出登录（关键修正：彻底清空 State 与 LocalStorage）
+  // ----------------- 用户认证逻辑 -----------------
+  const handleAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formEmail.trim() || !formPassword.trim()) {
+      alert('请填写完整的邮箱与密码！');
+      return;
+    }
+
+    if (authMode === 'register') {
+      if (!formName.trim()) {
+        alert('请输入用户名！');
+        return;
+      }
+      const newUser: User = {
+        id: 'user_' + Date.now(),
+        name: formName.trim(),
+        email: formEmail.trim(),
+        bio: '这家伙很懒，什么都没有留下...',
+        avatarFrameId: 'none',
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      localStorage.setItem(`pwd_${formEmail.trim()}`, formPassword);
+      saveUserToStorage(newUser);
+      setEditBio(newUser.bio || '');
+      setSelectedFrame('none');
+    } else {
+      const savedPwd = localStorage.getItem(`pwd_${formEmail.trim()}`);
+      if (!savedPwd) {
+        alert('账号不存在，请先注册！');
+        return;
+      }
+      if (savedPwd !== formPassword) {
+        alert('密码不正确！');
+        return;
+      }
+      const mockUser: User = {
+        id: 'user_' + Date.now(),
+        name: formEmail.split('@')[0],
+        email: formEmail.trim(),
+        bio: '欢迎回到 Sky-Blog！',
+        avatarFrameId: 'gold',
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      saveUserToStorage(mockUser);
+      setEditBio(mockUser.bio || '');
+      setSelectedFrame(mockUser.avatarFrameId || 'none');
+    }
+
+    setFormName('');
+    setFormEmail('');
+    setFormPassword('');
+  };
+
   const handleLogout = () => {
     if (window.confirm('确定要退出当前账号吗？')) {
       setUser(null);
       localStorage.removeItem('sky_blog_user');
-      localStorage.removeItem('sky_blog_token');
+      setActiveTab('feed');
     }
   };
 
-  // 处理发布博客/动态
-  const handleCreatePost = (e: React.FormEvent) => {
+  const handleUpdateProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) {
-      alert('请输入博文内容！');
-      return;
-    }
-    if (!user) {
-      alert('请先登录后再发布博文。');
-      return;
-    }
+    if (!user) return;
+    const updated: User = { ...user, bio: editBio, avatarFrameId: selectedFrame };
+    saveUserToStorage(updated);
+    alert('个人主页设置更新成功！');
+  };
+
+  // ----------------- 博文 CRUD 逻辑 -----------------
+  const handleSavePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim() || !user) return;
 
     setIsSubmitting(true);
-    const newPost: Post = {
-      id: 'post_' + Date.now(),
-      authorName: user.name,
-      createdAt: new Date().toISOString().split('T')[0],
-      content: content.trim(),
-      likes: 0,
-      commentsCount: 0,
-    };
 
-    const updated = [newPost, ...posts];
-    savePostsToStorage(updated);
+    if (editingPostId) {
+      // 编辑更新现有文章
+      const updated = posts.map((p) =>
+        p.id === editingPostId ? { ...p, content: content.trim() } : p
+      );
+      savePostsToStorage(updated);
+      setEditingPostId(null);
+    } else {
+      // 发布新博文
+      const newPost: Post = {
+        id: 'post_' + Date.now(),
+        authorId: user.id,
+        authorName: user.name,
+        authorFrameId: user.avatarFrameId,
+        createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        content: content.trim(),
+        likes: 0,
+        likedBy: [],
+        comments: [],
+      };
+      savePostsToStorage([newPost, ...posts]);
+    }
+
     setContent('');
+    setIsPreview(false);
     setIsSubmitting(false);
   };
 
-  // 点赞处理
+  const handleDeletePost = (id: string) => {
+    if (window.confirm('确定删除这篇博文吗？')) {
+      const updated = posts.filter((p) => p.id !== id);
+      savePostsToStorage(updated);
+    }
+  };
+
+  const handleEditPost = (post: Post) => {
+    setEditingPostId(post.id);
+    setContent(post.content);
+    setIsPreview(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 点赞 (防止同一用户重复点赞)
   const handleLike = (id: string) => {
-    const updated = posts.map((p) => (p.id === id ? { ...p, likes: p.likes + 1 } : p));
+    if (!user) return alert('请登录后再进行点赞');
+    const updated = posts.map((p) => {
+      if (p.id === id) {
+        const hasLiked = p.likedBy?.includes(user.id);
+        const newLikedBy = hasLiked
+          ? p.likedBy.filter((uid) => uid !== user.id)
+          : [...(p.likedBy || []), user.id];
+        return {
+          ...p,
+          likes: hasLiked ? p.likes - 1 : p.likes + 1,
+          likedBy: newLikedBy,
+        };
+      }
+      return p;
+    });
     savePostsToStorage(updated);
   };
 
-  // 快捷插入 KaTeX 公式模板
-  const insertFormula = (type: 'inline' | 'block') => {
-    if (type === 'inline') {
-      setContent((prev) => prev + ' $E=mc^2$ ');
-    } else {
-      setContent((prev) => prev + '\n$$\n\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx\n$$\n');
-    }
+  // 评论提交
+  const handleAddComment = (postId: string) => {
+    if (!user) return alert('请先登录后再发表评论');
+    const commentText = commentInputs[postId]?.trim();
+    if (!commentText) return;
+
+    const newComment: Comment = {
+      id: 'cmt_' + Date.now(),
+      authorName: user.name,
+      content: commentText,
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const updated = posts.map((p) =>
+      p.id === postId ? { ...p, comments: [...(p.comments || []), newComment] } : p
+    );
+    savePostsToStorage(updated);
+    setCommentInputs({ ...commentInputs, [postId]: '' });
   };
+
+  // 快捷工具栏插入文本
+  const insertText = (prefix: string, suffix: string = '') => {
+    setContent((prev) => prev + `${prefix}${suffix}`);
+  };
+
+  const getFrameClass = (frameId?: string) => {
+    const target = AVATAR_FRAMES.find((f) => f.id === frameId);
+    return target ? target.borderClass : 'border-transparent';
+  };
+
+  // 搜索过滤
+  const filteredPosts = posts.filter(
+    (p) =>
+      p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.authorName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -148,40 +300,51 @@ export default function Home() {
       {/* ---------------- 侧边栏 ---------------- */}
       <aside className="w-16 bg-white border-r flex flex-col justify-between items-center py-4 z-10 shadow-sm">
         <div className="flex flex-col items-center space-y-6">
-          {/* Logo / 标志 */}
           <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-md">
             SK
           </div>
 
-          {/* 导航菜单图标 */}
-          <button className="p-3 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition" title="主页">
+          <button
+            onClick={() => setActiveTab('feed')}
+            className={`p-3 rounded-xl transition ${
+              activeTab === 'feed' ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:bg-gray-100'
+            }`}
+            title="主页动态"
+          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
             </svg>
           </button>
 
-          <button className="p-3 text-gray-400 hover:bg-gray-100 rounded-xl transition" title="消息">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          </button>
+          {user && (
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`p-3 rounded-xl transition ${
+                activeTab === 'profile' ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:bg-gray-100'
+              }`}
+              title="个人主页"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </button>
+          )}
         </div>
 
-        {/* 底部功能区：退出登录与账号状态 */}
         <div className="flex flex-col items-center space-y-4">
           {user && (
-            <div title={`当前用户: ${user.name}`} className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+            <div
+              className={`w-9 h-9 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold transition-all ${getFrameClass(user.avatarFrameId)}`}
+              title={user.name}
+            >
               {user.name.slice(0, 2).toUpperCase()}
             </div>
           )}
 
-          {/* 退出登录按钮 (红框按钮，成功绑定 handleLogout) */}
           <button
             onClick={user ? handleLogout : () => {}}
             className={`p-3 rounded-xl transition ${
-              user
-                ? 'text-red-500 hover:bg-red-50 cursor-pointer'
-                : 'text-gray-300 cursor-not-allowed'
+              user ? 'text-red-500 hover:bg-red-50 cursor-pointer' : 'text-gray-300 cursor-not-allowed'
             }`}
             title={user ? `退出登录 (${user.name})` : '未登录'}
           >
@@ -194,173 +357,321 @@ export default function Home() {
 
       {/* ---------------- 主内容区域 ---------------- */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 顶部标题栏 */}
+        {/* 顶栏与检索框 */}
         <header className="h-14 bg-white border-b px-6 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-4">
             <span className="font-semibold text-gray-700">Sky-Blog 客户端</span>
             <span className="text-gray-300">•</span>
-            <span className="text-xs text-gray-500">
-              用户: {user ? user.name : '未登录'}
-            </span>
+            {/* 全局博文搜索框 */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="搜索动态或作者..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 pr-3 py-1 border rounded-lg text-xs w-48 focus:w-64 transition-all focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <svg className="w-4 h-4 text-gray-400 absolute left-2.5 top-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+          <div className="text-xs text-gray-500">
+            {user ? `登录身份: ${user.name} (${user.email})` : '未登录'}
           </div>
         </header>
 
-        {/* 主体滚动面板 */}
         <main className="flex-1 overflow-y-auto p-6 flex justify-center">
           <div className="w-full max-w-4xl space-y-6">
             {!user ? (
-              /* ---------------- 未登录展示：登录 / 注册表单 ---------------- */
-              <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm max-w-md mx-auto my-12 text-center">
-                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
-                  SK
+              /* ---------------- 登录 / 注册模块 ---------------- */
+              <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm max-w-md mx-auto my-8">
+                <div className="flex justify-center space-x-4 mb-6 border-b pb-3">
+                  <button
+                    onClick={() => setAuthMode('login')}
+                    className={`font-bold text-lg ${authMode === 'login' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}
+                  >
+                    密码登录
+                  </button>
+                  <button
+                    onClick={() => setAuthMode('register')}
+                    className={`font-bold text-lg ${authMode === 'register' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}
+                  >
+                    新用户注册
+                  </button>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">欢迎登录 Sky-Blog</h2>
-                <p className="text-sm text-gray-500 mb-6">请输入您的用户名称以开启客户端体验。</p>
 
-                <form onSubmit={handleLogin} className="space-y-4 text-left">
+                <form onSubmit={handleAuthSubmit} className="space-y-4">
+                  {authMode === 'register' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                        用户名 *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="例如: Sky_distant"
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-sm focus:outline-none"
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
-                      用户名 *
+                      电子邮箱 *
                     </label>
                     <input
-                      type="text"
+                      type="email"
                       required
-                      placeholder="例如: Sky_distant"
-                      value={loginName}
-                      onChange={(e) => setLoginName(e.target.value)}
-                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      placeholder="user@example.com"
+                      value={formEmail}
+                      onChange={(e) => setFormEmail(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-sm focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
-                      电子邮箱 (选填)
+                      密码 *
                     </label>
                     <input
-                      type="email"
-                      placeholder="user@example.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-sm focus:outline-none"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition shadow-md"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition shadow-md text-sm mt-2"
                   >
-                    进入客户端
+                    {authMode === 'login' ? '立即登录' : '注册账号'}
                   </button>
                 </form>
               </div>
-            ) : (
-              /* ---------------- 已登录展示：发布编辑框 + 博客动态列表 ---------------- */
-              <>
-                {/* 1. 博文发布编辑器 */}
-                <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm space-y-3">
-                  <textarea
-                    rows={4}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="撰写博客或发布动态... (支持 $E=mc^2$ 编写行内公式，或 $$...$$ 编写独立公式)"
-                    className="w-full border-0 focus:ring-0 resize-none text-gray-700 placeholder-gray-400 focus:outline-none"
-                  />
+            ) : activeTab === 'profile' ? (
+              /* ---------------- 个人主页与资料编辑 ---------------- */
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex items-center space-x-6">
+                  <div className={`w-20 h-20 rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl font-bold ${getFrameClass(user.avatarFrameId)}`}>
+                    {user.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-bold text-gray-800">{user.name}</h2>
+                    <p className="text-sm text-gray-500">{user.email} • 注册于 {user.createdAt}</p>
+                    <p className="text-sm text-gray-600 italic pt-1">{user.bio}</p>
+                  </div>
+                </div>
 
-                  <div className="flex items-center justify-between border-t pt-3">
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => insertFormula('inline')}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-600 transition"
-                      >
-                        ∑ 插入行内公式
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertFormula('block')}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-600 transition"
-                      >
-                        ∫ 插入块级公式
-                      </button>
-                      <span className="text-xs text-gray-400">支持 GFM 与 KaTeX 语法</span>
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
+                  <h3 className="font-bold text-lg text-gray-800 border-b pb-2">设置个人主页与头像框</h3>
+                  <form onSubmit={handleUpdateProfile} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                        个性签名
+                      </label>
+                      <input
+                        type="text"
+                        value={editBio}
+                        onChange={(e) => setEditBio(e.target.value)}
+                        className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                        装扮头像框
+                      </label>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        {AVATAR_FRAMES.map((frame) => (
+                          <div
+                            key={frame.id}
+                            onClick={() => setSelectedFrame(frame.id)}
+                            className={`p-3 border rounded-xl flex flex-col items-center space-y-2 cursor-pointer transition ${
+                              selectedFrame === frame.id ? 'border-blue-600 bg-blue-50/50' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className={`w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold ${frame.borderClass}`}>
+                              {user.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <span className="text-xs font-medium text-gray-700">{frame.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     <button
-                      onClick={handleCreatePost}
-                      disabled={isSubmitting || !content.trim()}
-                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium rounded-xl transition shadow-sm flex items-center space-x-1"
+                      type="submit"
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition shadow-sm"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                      <span>发布</span>
+                      保存设置
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ) : (
+              /* ---------------- 动态大厅与全功能 Markdown 编辑器 ---------------- */
+              <>
+                <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm space-y-3">
+                  {/* 富文本/Markdown 工具栏 */}
+                  <div className="flex flex-wrap items-center gap-1.5 border-b pb-2 text-xs">
+                    <button onClick={() => insertText('# ')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded font-bold">H1</button>
+                    <button onClick={() => insertText('## ')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded font-bold">H2</button>
+                    <button onClick={() => insertText('**', '**')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded font-bold">B</button>
+                    <button onClick={() => insertText('*', '*')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded italic">I</button>
+                    <button onClick={() => insertText('> ')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">引用</button>
+                    <button onClick={() => insertText('- ')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">列表</button>
+                    <button onClick={() => insertText('```\n', '\n```')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded font-mono">代码块</button>
+                    <button onClick={() => insertText(' $E=mc^2$ ')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">公式</button>
+                    <button onClick={() => insertText('![图片描述](https://via.placeholder.com/600x300)')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">插入图片</button>
+                    <button onClick={() => insertText('| 标题1 | 标题2 |\n| --- | --- |\n| 内容1 | 内容2 |')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded">表格</button>
+
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => setIsPreview(!isPreview)}
+                      className={`px-3 py-1 rounded font-medium ${isPreview ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                    >
+                      {isPreview ? '编辑模式' : '渲染预览'}
                     </button>
                   </div>
-                </div>
 
-                {/* 2. 信息统计与刷新栏 */}
-                <div className="flex items-center justify-between text-sm text-gray-500 px-1">
-                  <span>共 {posts.length} 篇博文</span>
-                  <button
-                    onClick={() => {
-                      const saved = localStorage.getItem('sky_blog_posts');
-                      setPosts(saved ? JSON.parse(saved) : []);
-                    }}
-                    className="hover:text-blue-600 flex items-center space-x-1 transition"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>刷新数据</span>
-                  </button>
-                </div>
-
-                {/* 3. 博文列表 / 空状态 */}
-                {posts.length === 0 ? (
-                  <div className="bg-white rounded-2xl p-12 border border-dashed border-gray-300 text-center space-y-3">
-                    <div className="w-12 h-12 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto text-xl">
-                      📝
+                  {isPreview ? (
+                    <div className="p-4 min-h-[120px] border rounded-xl bg-gray-50 prose prose-blue max-w-none text-sm">
+                      <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                        {content || '*暂无输入内容*'}
+                      </ReactMarkdown>
                     </div>
-                    <p className="text-gray-500 font-medium">暂无博文数据</p>
-                    <p className="text-xs text-gray-400">在上方编辑器中撰写并发布你的第一条博客吧！</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {posts.map((post) => (
-                      <div key={post.id} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
-                            {post.authorName.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-800">{post.authorName}</div>
-                            <div className="text-xs text-gray-400">{post.createdAt} • Sky-Blog 客户端</div>
-                          </div>
-                        </div>
+                  ) : (
+                    <textarea
+                      rows={5}
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      placeholder="撰写博客或动态... 支持表格、GFM、图片和 KaTeX 公式 $E=mc^2$"
+                      className="w-full border-0 focus:ring-0 resize-none text-gray-700 placeholder-gray-400 focus:outline-none text-sm"
+                    />
+                  )}
 
-                        {/* 博文内容 */}
-                        <div className="text-gray-700 whitespace-pre-wrap leading-relaxed font-normal">
-                          {post.content}
-                        </div>
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <span className="text-xs text-gray-400">
+                      {editingPostId ? '正在修改现有博文' : '支持 GFM + LaTeX 扩展语法'}
+                    </span>
+                    <div className="space-x-2">
+                      {editingPostId && (
+                        <button
+                          onClick={() => {
+                            setEditingPostId(null);
+                            setContent('');
+                          }}
+                          className="px-4 py-2 border rounded-xl text-xs hover:bg-gray-50"
+                        >
+                          取消修改
+                        </button>
+                      )}
+                      <button
+                        onClick={handleSavePost}
+                        disabled={isSubmitting || !content.trim()}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium rounded-xl transition shadow-sm text-xs"
+                      >
+                        {editingPostId ? '保存修改' : '发布博文'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-                        {/* 互动栏 */}
-                        <div className="flex items-center space-x-6 border-t pt-3 text-sm text-gray-500">
-                          <button
-                            onClick={() => handleLike(post.id)}
-                            className="flex items-center space-x-1 hover:text-blue-600 transition"
-                          >
-                            <span>👍</span>
-                            <span>{post.likes}</span>
-                          </button>
-                          <div className="flex items-center space-x-1">
-                            <span>💬</span>
-                            <span>评论 ({post.commentsCount})</span>
+                {/* 动态列表 */}
+                <div className="space-y-4">
+                  {filteredPosts.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-12 border border-dashed border-gray-300 text-center text-gray-400">
+                      暂无找到相关博文内容
+                    </div>
+                  ) : (
+                    filteredPosts.map((post) => {
+                      const hasLiked = post.likedBy?.includes(user?.id || '');
+                      return (
+                        <div key={post.id} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
+                          {/* 作者头部信息与编辑/删除 */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold ${getFrameClass(post.authorFrameId)}`}>
+                                {post.authorName.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-gray-800 text-sm">{post.authorName}</div>
+                                <div className="text-xs text-gray-400">{post.createdAt}</div>
+                              </div>
+                            </div>
+
+                            {user?.name === post.authorName && (
+                              <div className="flex items-center space-x-2 text-xs">
+                                <button onClick={() => handleEditPost(post)} className="text-blue-600 hover:underline">编辑</button>
+                                <button onClick={() => handleDeletePost(post.id)} className="text-red-500 hover:underline">删除</button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 基于 ReactMarkdown 的丰富渲染区域 */}
+                          <div className="prose prose-blue max-w-none text-sm text-gray-700 leading-relaxed">
+                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+                              {post.content}
+                            </ReactMarkdown>
+                          </div>
+
+                          {/* 互动动作条 */}
+                          <div className="border-t pt-3 space-y-3">
+                            <div className="flex items-center space-x-6 text-xs text-gray-500">
+                              <button
+                                onClick={() => handleLike(post.id)}
+                                className={`flex items-center space-x-1 transition ${hasLiked ? 'text-blue-600 font-bold' : 'hover:text-blue-600'}`}
+                              >
+                                <span>{hasLiked ? '👍 已赞' : '👍 点赞'}</span>
+                                <span>({post.likes})</span>
+                              </button>
+                              <div>💬 评论 ({post.comments?.length || 0})</div>
+                            </div>
+
+                            {/* 评论列表区域 */}
+                            {post.comments && post.comments.length > 0 && (
+                              <div className="bg-gray-50 p-3 rounded-xl space-y-2 text-xs">
+                                {post.comments.map((cmt) => (
+                                  <div key={cmt.id} className="flex justify-between items-start">
+                                    <div>
+                                      <span className="font-semibold text-gray-700">{cmt.authorName}: </span>
+                                      <span className="text-gray-600">{cmt.content}</span>
+                                    </div>
+                                    <span className="text-[10px] text-gray-400">{cmt.createdAt}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* 评论输入框 */}
+                            <div className="flex space-x-2 pt-1">
+                              <input
+                                type="text"
+                                placeholder="写下你的评论..."
+                                value={commentInputs[post.id] || ''}
+                                onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
+                                className="flex-1 px-3 py-1.5 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={() => handleAddComment(post.id)}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs hover:bg-blue-700 transition"
+                              >
+                                发送
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      );
+                    })
+                  )}
+                </div>
               </>
             )}
           </div>

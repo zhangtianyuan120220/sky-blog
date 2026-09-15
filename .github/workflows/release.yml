@@ -92,12 +92,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 换用稳定可用的 nttld/setup-ndk@v1
+      # 配置 NDK 路径
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r25c
+
+      # 关键步骤：把 NDK 编译器路径加到系统的 PATH 环境变量中
+      - name: Add NDK toolchain to PATH
+        run: |
+          echo "NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
+          echo "${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -117,7 +124,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         with:
           args: --target aarch64-linux-android
           tagName: nightly

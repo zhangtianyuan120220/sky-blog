@@ -1,20 +1,18 @@
 [package]
 name = "sky-blog"
 version = "1.0.7"
-description = "Sky-Blog Desktop App"
+description = "Sky Blog Desktop & Mobile App"
+authors = ["you"]
 edition = "2021"
 
-[lib]
-name = "sky_blog"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-notification = "2"
-tauri-plugin-http = "2"
-rusqlite = { version = "0.31", features = ["bundled"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+tauri = { version = "2.0.0", features = [] }
+tauri-plugin-shell = "2.0.0"
+tauri-plugin-http = "2.0.0"
+tauri-plugin-notification = "2.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rusqlite = { version = "0.31.0", features = ["bundled"] }

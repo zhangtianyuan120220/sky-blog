@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 步骤 1：先清理 GitHub 上已有的 nightly 标签和对应的旧文件，防止上传冲突
+  # 1. 构建前清理已存在的 nightly 标签与文件，防止覆盖冲突
   prepare-release:
     permissions:
       contents: write
@@ -31,7 +31,7 @@ jobs:
               console.log('No existing nightly release found, skipping deletion.');
             }
 
-  # 步骤 2：多平台并行构建桌面端应用
+  # 2. 桌面端构建 (Windows / Ubuntu / macOS)
   release-desktop:
     needs: prepare-release
     permissions:
@@ -77,7 +77,7 @@ jobs:
           prerelease: true
           allowOverwrite: true
 
-  # 步骤 3：桌面端完成后，构建 Android 端 APK
+  # 3. Android 端构建
   release-android:
     needs: release-desktop
     permissions:
@@ -92,8 +92,9 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # 使用替代的 NDK Action，解决已失效的 repository 报错
       - name: Setup Android NDK
-        uses: nknouf/setup-ndk@v1
+        uses: nkirchhoff/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r25c

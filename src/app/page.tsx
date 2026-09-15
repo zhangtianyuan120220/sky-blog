@@ -1,908 +1,371 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useRef } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/utils/supabase';
 
-// 引入 KaTeX 样式（解析公式必须依赖此 CSS）
-import "katex/dist/katex.min.css";
-
-import { 
-  MessageSquare, 
-  LayoutGrid, 
-  Moon, 
-  Sun, 
-  Send, 
-  LogOut, 
-  ThumbsUp, 
-  MessageCircle,
-  User,
-  Minus,
-  Square,
-  X,
-  Edit3,
-  CheckCircle2,
-  RefreshCw,
-  Sigma,
-  ShieldAlert
-} from "lucide-react";
-
-import { supabase } from "@/utils/supabase";
-
-// 数据结构定义
-interface Comment {
+// ----------------- 类型定义 -----------------
+interface User {
   id: string;
-  author: string;
-  avatar: string;
-  content: string;
-  date: string;
+  name: string;
+  email?: string;
 }
 
 interface Post {
   id: string;
-  author: string;
-  avatar: string;
-  date: string;
-  source: string;
+  authorName: string;
+  createdAt: string;
   content: string;
   likes: number;
-  isLiked: boolean;
-  comments: Comment[];
+  commentsCount: number;
 }
-
-interface ChatMessage {
-  id: string;
-  sender: string;
-  content: string;
-  time: string;
-}
-
-// 辅助函数：生成抗碰撞的唯一 ID
-const generateId = (prefix: string) => 
-  `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
 export default function Home() {
-  const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"feed" | "chat" | "profile" | "admin">("feed");
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // 1. 用户认证状态（初始为 null，无默认账号）
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  // Supabase 会话与用户档案状态
-  const [session, setSession] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
-
-  // 1. 个人用户系统状态
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [tempNickname, setTempNickname] = useState("");
-  const [tempBio, setTempBio] = useState("");
-
-  // 2. 真实博文与评论状态
+  // 2. 博客数据列表（初始为空数组 []，无默认样例）
   const [posts, setPosts] = useState<Post[]>([]);
-  const [newPostContent, setNewPostContent] = useState("");
-  const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
-  const [commentInput, setCommentInput] = useState("");
 
-  // 3. 真实聊天消息状态
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  // 3. 发布框与编辑器状态
+  const [content, setContent] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // 4. 自动滚动聊天到底部
+  // 4. 登录/注册表单输入状态
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginName, setLoginName] = useState('');
+
+  // 初始化检查登录状态与加载本地数据
   useEffect(() => {
-    if (activeTab === "chat") {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, activeTab]);
-
-  // 初始化加载：Supabase 自动登录与数据同步
-  useEffect(() => {
-    setMounted(true);
-
-    async function initAuthAndData() {
-      // 1. 检查当前本地会话
-      const { data: { session: existingSession } } = await supabase.auth.getSession();
-      
-      let currentSession = existingSession;
-
-      if (!currentSession) {
-        // 如果没有会话，自动以管理员身份登录
-        const { data: signInData } = await supabase.auth.signInWithPassword({
-          email: 'Sky_distant@example.com',
-          password: 'shuaishuai170314',
-        });
-
-        if (signInData?.session) {
-          currentSession = signInData.session;
+    const initAuth = () => {
+      try {
+        const savedUser = localStorage.getItem('sky_blog_user');
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+        }
+        const savedPosts = localStorage.getItem('sky_blog_posts');
+        if (savedPosts) {
+          setPosts(JSON.parse(savedPosts));
         } else {
-          // 如果账号尚未注册，自动注册一次
-          const { data: signUpData } = await supabase.auth.signUp({
-            email: 'Sky_distant@example.com',
-            password: 'shuaishuai170314',
-            options: { data: { username: 'Sky_distant' } }
-          });
-          if (signUpData?.session) currentSession = signUpData.session;
+          setPosts([]);
         }
+      } catch (e) {
+        console.error('初始化数据读取失败:', e);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setSession(currentSession);
-
-      if (currentSession?.user) {
-        fetchUserProfile(currentSession.user.id);
-      }
-
-      // 默认提供一篇包含 KaTeX 公式渲染演示的示例博文
-      setPosts([
-        {
-          id: generateId("post-demo"),
-          author: "Sky_distant",
-          avatar: "SK",
-          date: new Date().toISOString().split("T")[0],
-          source: "Sky-Blog 客户端",
-          content: `### 傅里叶变换与数学公式渲染测试\n\n欢迎使用 **Sky-Blog 客户端**！本编辑器现已支持 Markdown 与 KaTeX 数学公式原生渲染。\n\n#### 行内公式 (Inline Math)\n质能方程为 $E = mc^2$，欧拉公式为 $e^{i\\pi} + 1 = 0$。\n\n#### 块级公式 (Block Math)\n连续傅里叶变换 (Fourier Transform) 表达如下：\n$$\n\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx\n$$\n\n算法复杂度：$\\mathcal{O}(n \\log n)$，非常适合处理信号与数据分析。`,
-          likes: 12,
-          isLiked: false,
-          comments: [
-            {
-              id: generateId("c-demo"),
-              author: "Alice",
-              avatar: "AL",
-              date: "10:30",
-              content: "KaTeX 公式渲染效果真清晰！"
-            }
-          ]
-        }
-      ]);
-
-      fetchPosts();
-    }
-
-    initAuthAndData();
+    initAuth();
   }, []);
 
-  // 获取用户档案
-  const fetchUserProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+  // 保存帖子数据到 LocalStorage
+  const savePostsToStorage = (updatedPosts: Post[]) => {
+    setPosts(updatedPosts);
+    localStorage.setItem('sky_blog_posts', JSON.stringify(updatedPosts));
+  };
 
-    if (data) {
-      setProfile(data);
-      if (data.role === 'super_admin' || data.role === 'admin') {
-        fetchAllUsers();
-      }
+  // 处理登录
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginName.trim()) {
+      alert('请输入用户名！');
+      return;
+    }
+    const newUser: User = {
+      id: 'user_' + Date.now(),
+      name: loginName.trim(),
+      email: loginEmail.trim() || undefined,
+    };
+    setUser(newUser);
+    localStorage.setItem('sky_blog_user', JSON.stringify(newUser));
+    setLoginName('');
+    setLoginEmail('');
+  };
+
+  // 处理退出登录（关键修正：彻底清空 State 与 LocalStorage）
+  const handleLogout = () => {
+    if (window.confirm('确定要退出当前账号吗？')) {
+      setUser(null);
+      localStorage.removeItem('sky_blog_user');
+      localStorage.removeItem('sky_blog_token');
     }
   };
 
-  // 管理员：获取所有用户
-  const fetchAllUsers = async () => {
-    const { data } = await supabase.from('profiles').select('*').order('user_id', { ascending: true });
-    if (data) setAllUsers(data);
+  // 处理发布博客/动态
+  const handleCreatePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!content.trim()) {
+      alert('请输入博文内容！');
+      return;
+    }
+    if (!user) {
+      alert('请先登录后再发布博文。');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const newPost: Post = {
+      id: 'post_' + Date.now(),
+      authorName: user.name,
+      createdAt: new Date().toISOString().split('T')[0],
+      content: content.trim(),
+      likes: 0,
+      commentsCount: 0,
+    };
+
+    const updated = [newPost, ...posts];
+    savePostsToStorage(updated);
+    setContent('');
+    setIsSubmitting(false);
   };
 
-  // 超级管理员：修改用户权限
-  const handleUpdateRole = async (targetUserId: string, newRole: string) => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', targetUserId);
+  // 点赞处理
+  const handleLike = (id: string) => {
+    const updated = posts.map((p) => (p.id === id ? { ...p, likes: p.likes + 1 } : p));
+    savePostsToStorage(updated);
+  };
 
-    if (!error) {
-      alert('用户权限更新成功！');
-      fetchAllUsers();
+  // 快捷插入 KaTeX 公式模板
+  const insertFormula = (type: 'inline' | 'block') => {
+    if (type === 'inline') {
+      setContent((prev) => prev + ' $E=mc^2$ ');
     } else {
-      alert('更新失败: ' + error.message);
+      setContent((prev) => prev + '\n$$\n\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx\n$$\n');
     }
   };
 
-  // 从远程 API / Hugo 博客 Fetch 数据
-  const fetchPosts = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/posts");
-      if (response.ok) {
-        const data = await response.json();
-        setPosts(data);
-      }
-    } catch (error) {
-      console.warn("未获取到远程博文数据，处于本地模式:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!mounted) {
+  if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950 text-gray-500 font-sans select-none">
-        正在初始化客户端...
+      <div className="flex items-center justify-center h-screen bg-gray-50 text-gray-500">
+        正在加载 Sky-Blog...
       </div>
     );
   }
 
-  // 窗口控制逻辑 (Tauri 安全集成)
-  const handleStartDrag = async (e: React.MouseEvent) => {
-    if (e.button === 0) {
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        await getCurrentWindow().startDragging();
-      } catch (err) {
-        // 浏览器环境运行时的回退逻辑
-      }
-    }
-  };
-
-  const handleMinimize = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().minimize();
-    } catch (err) {
-      console.log("非 Tauri 环境，忽略最小化");
-    }
-  };
-
-  const handleToggleMaximize = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().toggleMaximize();
-    } catch (err) {
-      console.log("非 Tauri 环境，忽略最大化");
-    }
-  };
-
-  const handleClose = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().close();
-    } catch (err) {
-      console.log("非 Tauri 环境，忽略关闭");
-    }
-  };
-
-  // 保存个人资料到 Supabase
-  const handleSaveProfile = async () => {
-    if (!tempNickname.trim() || !profile) return;
-    
-    const { error } = await supabase
-      .from('profiles')
-      .update({ username: tempNickname.trim(), bio: tempBio })
-      .eq('id', profile.id);
-
-    if (!error) {
-      setProfile({ ...profile, username: tempNickname.trim(), bio: tempBio });
-      setIsEditingProfile(false);
-      alert('资料更新成功！');
-    } else {
-      alert('更新失败: ' + error.message);
-    }
-  };
-
-  // 插入数学公式快捷语法
-  const handleInsertMathTemplate = () => {
-    setNewPostContent((prev) => prev + "\n\n$$\n\\int_{0}^{\\infty} x^2 dx\n$$\n");
-  };
-
-  // 发布动态/博客
-  const handlePublishPost = async () => {
-    if (!newPostContent.trim()) return;
-
-    const nickname = profile?.username || "用户";
-    const newPost: Post = {
-      id: generateId("post"),
-      author: nickname,
-      avatar: nickname.slice(0, 2).toUpperCase(),
-      date: new Date().toISOString().split("T")[0],
-      source: "来自 Sky-Blog 客户端",
-      content: newPostContent,
-      likes: 0,
-      isLiked: false,
-      comments: [],
-    };
-
-    setPosts([newPost, ...posts]);
-    setNewPostContent("");
-
-    try {
-      await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newPost),
-      });
-    } catch (e) {
-      console.error("提交至服务端失败:", e);
-    }
-  };
-
-  // 点赞操作
-  const handleToggleLike = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-            isLiked: !post.isLiked,
-          };
-        }
-        return post;
-      })
-    );
-  };
-
-  // 发表评论
-  const handleAddComment = (postId: string) => {
-    if (!commentInput.trim()) return;
-
-    const nickname = profile?.username || "用户";
-    const newComment: Comment = {
-      id: generateId("c"),
-      author: nickname,
-      avatar: nickname.slice(0, 2).toUpperCase(),
-      content: commentInput,
-      date: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            comments: [...post.comments, newComment],
-          };
-        }
-        return post;
-      })
-    );
-    setCommentInput("");
-  };
-
-  // 发送聊天消息
-  const handleSendMessage = () => {
-    if (!chatInput.trim()) return;
-    const nickname = profile?.username || "用户";
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: generateId("msg"),
-        sender: nickname,
-        content: chatInput,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      },
-    ]);
-    setChatInput("");
-  };
-
-  const nickname = profile?.username || "加载中...";
-
   return (
-    <div className={`flex h-screen w-screen overflow-hidden ${isDarkMode ? "dark bg-gray-950 text-gray-100" : "bg-gray-100 text-gray-800"}`}>
-      
-      {/* 侧边导航栏 */}
-      <aside className="w-16 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col items-center py-4 justify-between shrink-0 select-none z-20">
-        <div className="flex flex-col items-center gap-6">
-          <button 
-            onClick={() => setActiveTab("profile")}
-            className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow hover:opacity-90 transition-opacity cursor-pointer overflow-hidden"
-            title="个人主页"
-          >
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="头像" className="w-full h-full object-cover" />
-            ) : (
-              nickname ? nickname.slice(0, 2).toUpperCase() : "ME"
-            )}
+    <div className="flex h-screen bg-gray-100 text-gray-800 font-sans overflow-hidden">
+      {/* ---------------- 侧边栏 ---------------- */}
+      <aside className="w-16 bg-white border-r flex flex-col justify-between items-center py-4 z-10 shadow-sm">
+        <div className="flex flex-col items-center space-y-6">
+          {/* Logo / 标志 */}
+          <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-md">
+            SK
+          </div>
+
+          {/* 导航菜单图标 */}
+          <button className="p-3 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition" title="主页">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
           </button>
 
-          <button
-            onClick={() => setActiveTab("feed")}
-            className={`p-3 rounded-xl transition-all ${
-              activeTab === "feed"
-                ? "bg-blue-600 text-white shadow-md"
-                : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-            }`}
-            title="社区动态"
-          >
-            <LayoutGrid size={20} />
+          <button className="p-3 text-gray-400 hover:bg-gray-100 rounded-xl transition" title="消息">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
           </button>
-
-          <button
-            onClick={() => setActiveTab("chat")}
-            className={`p-3 rounded-xl transition-all ${
-              activeTab === "chat"
-                ? "bg-blue-600 text-white shadow-md"
-                : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-            }`}
-            title="即时通讯与社区服务"
-          >
-            <MessageSquare size={20} />
-          </button>
-
-          <button
-            onClick={() => setActiveTab("profile")}
-            className={`p-3 rounded-xl transition-all ${
-              activeTab === "profile"
-                ? "bg-blue-600 text-white shadow-md"
-                : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-            }`}
-            title="个人主页"
-          >
-            <User size={20} />
-          </button>
-
-          {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
-            <button
-              onClick={() => setActiveTab("admin")}
-              className={`p-3 rounded-xl transition-all ${
-                activeTab === "admin"
-                  ? "bg-red-600 text-white shadow-md"
-                  : "text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
-              title="管理后台"
-            >
-              <ShieldAlert size={20} />
-            </button>
-          )}
         </div>
 
-        <div className="flex flex-col items-center gap-4">
+        {/* 底部功能区：退出登录与账号状态 */}
+        <div className="flex flex-col items-center space-y-4">
+          {user && (
+            <div title={`当前用户: ${user.name}`} className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
+              {user.name.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+
+          {/* 退出登录按钮 (红框按钮，成功绑定 handleLogout) */}
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-            title="切换主题"
+            onClick={user ? handleLogout : () => {}}
+            className={`p-3 rounded-xl transition ${
+              user
+                ? 'text-red-500 hover:bg-red-50 cursor-pointer'
+                : 'text-gray-300 cursor-not-allowed'
+            }`}
+            title={user ? `退出登录 (${user.name})` : '未登录'}
           >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer">
-            <LogOut size={18} />
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
           </button>
         </div>
       </aside>
 
-      {/* 主界面区域 */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
-        
-        {/* 顶部标题栏 (支持 Tauri 无边框拖拽) */}
-        <header 
-          onMouseDown={handleStartDrag}
-          data-tauri-drag-region
-          className="h-9 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between pl-4 pr-0 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0 select-none cursor-default"
-        >
-          <div className="flex items-center gap-2 pointer-events-none">
-            <span>Sky-Blog 客户端</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
-            <span className="text-[10px] opacity-70">用户: {nickname}</span>
-          </div>
-
-          <div 
-            data-tauri-drag-region="false" 
-            onMouseDown={(e) => e.stopPropagation()} 
-            className="flex items-center z-50 h-full"
-          >
-            <button
-              onClick={handleMinimize}
-              className="w-10 h-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
-              title="最小化"
-            >
-              <Minus size={13} />
-            </button>
-            <button
-              onClick={handleToggleMaximize}
-              className="w-10 h-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
-              title="最大化"
-            >
-              <Square size={11} />
-            </button>
-            <button
-              onClick={handleClose}
-              className="w-10 h-full flex items-center justify-center hover:bg-red-500 hover:text-white text-gray-500 dark:text-gray-400 transition-colors cursor-pointer"
-              title="关闭"
-            >
-              <X size={14} />
-            </button>
+      {/* ---------------- 主内容区域 ---------------- */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* 顶部标题栏 */}
+        <header className="h-14 bg-white border-b px-6 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold text-gray-700">Sky-Blog 客户端</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-xs text-gray-500">
+              用户: {user ? user.name : '未登录'}
+            </span>
           </div>
         </header>
 
-        {/* 1. 社区动态与博客页面 */}
-        {activeTab === "feed" && (
-          <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full space-y-6">
-            
-            {/* 发布博客组件 */}
-            <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-3">
-              <textarea
-                value={newPostContent}
-                onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="撰写博客或发布动态... (使用 $E=mc^2$ 编写行内公式，或 $$...$$ 编写独立公式)"
-                className="w-full h-28 bg-transparent resize-none outline-none text-sm placeholder-gray-400"
-              />
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-2">
+        {/* 主体滚动面板 */}
+        <main className="flex-1 overflow-y-auto p-6 flex justify-center">
+          <div className="w-full max-w-4xl space-y-6">
+            {!user ? (
+              /* ---------------- 未登录展示：登录 / 注册表单 ---------------- */
+              <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm max-w-md mx-auto my-12 text-center">
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                  SK
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">欢迎登录 Sky-Blog</h2>
+                <p className="text-sm text-gray-500 mb-6">请输入您的用户名称以开启客户端体验。</p>
+
+                <form onSubmit={handleLogin} className="space-y-4 text-left">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                      用户名 *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="例如: Sky_distant"
+                      value={loginName}
+                      onChange={(e) => setLoginName(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                      电子邮箱 (选填)
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="user@example.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+
                   <button
-                    onClick={handleInsertMathTemplate}
-                    className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                    title="插入数学公式模板"
+                    type="submit"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition shadow-md"
                   >
-                    <Sigma size={13} /> 插入公式
+                    进入客户端
                   </button>
-                  <span className="text-[11px] text-gray-400 hidden sm:inline">
-                    支持 GFM 与 KaTeX 语法
-                  </span>
-                </div>
-                
-                <button
-                  onClick={handlePublishPost}
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-                >
-                  <Send size={14} /> 发布
-                </button>
+                </form>
               </div>
-            </div>
+            ) : (
+              /* ---------------- 已登录展示：发布编辑框 + 博客动态列表 ---------------- */
+              <>
+                {/* 1. 博文发布编辑器 */}
+                <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm space-y-3">
+                  <textarea
+                    rows={4}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="撰写博客或发布动态... (支持 $E=mc^2$ 编写行内公式，或 $$...$$ 编写独立公式)"
+                    className="w-full border-0 focus:ring-0 resize-none text-gray-700 placeholder-gray-400 focus:outline-none"
+                  />
 
-            {/* 博文列表顶部控制 */}
-            <div className="flex items-center justify-between text-xs text-gray-400 px-1">
-              <span>共 {posts.length} 篇博文</span>
-              <button 
-                onClick={fetchPosts} 
-                className="flex items-center gap-1 hover:text-blue-600 transition-colors cursor-pointer"
-              >
-                <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} /> 刷新数据
-              </button>
-            </div>
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => insertFormula('inline')}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-600 transition"
+                      >
+                        ∑ 插入行内公式
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => insertFormula('block')}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-600 transition"
+                      >
+                        ∫ 插入块级公式
+                      </button>
+                      <span className="text-xs text-gray-400">支持 GFM 与 KaTeX 语法</span>
+                    </div>
 
-            {/* 博文列表 */}
-            <div className="space-y-4">
-              {posts.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 text-gray-400 text-sm">
-                  暂无博文数据，快来发布第一篇博客吧！
+                    <button
+                      onClick={handleCreatePost}
+                      disabled={isSubmitting || !content.trim()}
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium rounded-xl transition shadow-sm flex items-center space-x-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span>发布</span>
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                posts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-4"
+
+                {/* 2. 信息统计与刷新栏 */}
+                <div className="flex items-center justify-between text-sm text-gray-500 px-1">
+                  <span>共 {posts.length} 篇博文</span>
+                  <button
+                    onClick={() => {
+                      const saved = localStorage.getItem('sky_blog_posts');
+                      setPosts(saved ? JSON.parse(saved) : []);
+                    }}
+                    className="hover:text-blue-600 flex items-center space-x-1 transition"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
-                        {post.avatar}
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold">{post.author}</div>
-                        <div className="text-xs text-gray-400">
-                          {post.date} · {post.source}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Markdown + KaTeX 数学公式渲染关键逻辑 */}
-                    <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-700 dark:text-gray-300 overflow-x-auto">
-                      <ReactMarkdown 
-                        remarkPlugins={[remarkGfm, remarkMath]} 
-                        rehypePlugins={[rehypeKatex]}
-                      >
-                        {post.content}
-                      </ReactMarkdown>
-                    </div>
-
-                    {/* 点赞与评论交互 */}
-                    <div className="flex items-center gap-6 pt-3 text-xs text-gray-500 border-t border-gray-100 dark:border-gray-800">
-                      <button
-                        onClick={() => handleToggleLike(post.id)}
-                        className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
-                          post.isLiked ? "text-blue-600 font-semibold" : "hover:text-blue-600"
-                        }`}
-                      >
-                        <ThumbsUp size={14} className={post.isLiked ? "fill-blue-600" : ""} />
-                        <span>{post.likes}</span>
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          setActiveCommentPostId(
-                            activeCommentPostId === post.id ? null : post.id
-                          )
-                        }
-                        className="flex items-center gap-1.5 hover:text-blue-600 transition-colors cursor-pointer"
-                      >
-                        <MessageCircle size={14} />
-                        <span>评论 ({post.comments.length})</span>
-                      </button>
-                    </div>
-
-                    {/* 评论区 */}
-                    {activeCommentPostId === post.id && (
-                      <div className="pt-3 space-y-3 bg-gray-50 dark:bg-gray-950 p-4 rounded-xl">
-                        <div className="space-y-2">
-                          {post.comments.length === 0 ? (
-                            <div className="text-xs text-gray-400 italic">暂无评论</div>
-                          ) : (
-                            post.comments.map((comment) => (
-                              <div key={comment.id} className="text-xs flex gap-2 border-b border-gray-100 dark:border-gray-800/60 pb-2">
-                                <span className="font-semibold text-blue-600 dark:text-blue-400 shrink-0">
-                                  {comment.author}:
-                                </span>
-                                <div className="text-gray-700 dark:text-gray-300 flex-1 overflow-x-auto">
-                                  <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                                    {comment.content}
-                                  </ReactMarkdown>
-                                </div>
-                                <span className="text-[10px] text-gray-400 shrink-0">{comment.date}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-
-                        <div className="flex gap-2 pt-1">
-                          <input
-                            type="text"
-                            value={commentInput}
-                            onChange={(e) => setCommentInput(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
-                            placeholder="发表评论 (支持公式)..."
-                            className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <button
-                            onClick={() => handleAddComment(post.id)}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors cursor-pointer"
-                          >
-                            发送
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 2. 即时通讯与社区服务页面 */}
-        {activeTab === "chat" && (
-          <div className="flex-1 flex min-h-0 overflow-hidden bg-white dark:bg-gray-900">
-            <div className="w-64 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex flex-col shrink-0">
-              <div className="p-4 font-bold text-sm border-b border-gray-200 dark:border-gray-800 shrink-0 select-none">
-                消息频道
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-600 cursor-pointer flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                    大群
-                  </div>
-                  <div className="overflow-hidden">
-                    <div className="font-semibold text-sm truncate">全员频道</div>
-                    <div className="text-xs text-gray-400 truncate">
-                      {messages[messages.length - 1]?.content || "暂无新消息"}
-                    </div>
-                  </div>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>刷新数据</span>
+                  </button>
                 </div>
-              </div>
-            </div>
 
-            <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-950">
-              <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 font-semibold text-sm shrink-0 select-none">
-                💬 即时通讯与社区服务频道 (支持公式)
-              </div>
-
-              <div className="flex-1 p-6 overflow-y-auto space-y-4 min-h-0">
-                {messages.length === 0 ? (
-                  <div className="text-center text-gray-400 text-xs py-10">频道内暂无消息，欢迎探讨算法与数学公式！</div>
+                {/* 3. 博文列表 / 空状态 */}
+                {posts.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-12 border border-dashed border-gray-300 text-center space-y-3">
+                    <div className="w-12 h-12 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto text-xl">
+                      📝
+                    </div>
+                    <p className="text-gray-500 font-medium">暂无博文数据</p>
+                    <p className="text-xs text-gray-400">在上方编辑器中撰写并发布你的第一条博客吧！</p>
+                  </div>
                 ) : (
-                  messages.map((msg) => {
-                    const isMe = msg.sender === nickname;
-                    return (
-                      <div key={msg.id} className={`flex gap-3 ${isMe ? "flex-row-reverse" : ""}`}>
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                            isMe ? "bg-green-600" : "bg-blue-600"
-                          }`}
-                        >
-                          {msg.sender.slice(0, 2).toUpperCase()}
+                  <div className="space-y-4">
+                    {posts.map((post) => (
+                      <div key={post.id} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm space-y-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+                            {post.authorName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-800">{post.authorName}</div>
+                            <div className="text-xs text-gray-400">{post.createdAt} • Sky-Blog 客户端</div>
+                          </div>
                         </div>
-                        <div
-                          className={`max-w-md p-3.5 rounded-2xl text-sm shadow-sm ${
-                            isMe
-                              ? "bg-blue-600 text-white rounded-tr-none"
-                              : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-tl-none"
-                          }`}
-                        >
-                          <div className="text-[10px] opacity-70 mb-1">{msg.sender} · {msg.time}</div>
-                          <div className="prose dark:prose-invert text-sm max-w-none overflow-x-auto">
-                            <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
-                              {msg.content}
-                            </ReactMarkdown>
+
+                        {/* 博文内容 */}
+                        <div className="text-gray-700 whitespace-pre-wrap leading-relaxed font-normal">
+                          {post.content}
+                        </div>
+
+                        {/* 互动栏 */}
+                        <div className="flex items-center space-x-6 border-t pt-3 text-sm text-gray-500">
+                          <button
+                            onClick={() => handleLike(post.id)}
+                            className="flex items-center space-x-1 hover:text-blue-600 transition"
+                          >
+                            <span>👍</span>
+                            <span>{post.likes}</span>
+                          </button>
+                          <div className="flex items-center space-x-1">
+                            <span>💬</span>
+                            <span>评论 ({post.commentsCount})</span>
                           </div>
                         </div>
                       </div>
-                    );
-                  })
-                )}
-                {/* 滚动锚点 */}
-                <div ref={chatEndRef} />
-              </div>
-
-              <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-3 shrink-0">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                  placeholder="输入消息，可发送公式如 $a^2 + b^2 = c^2$..."
-                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
-                >
-                  <Send size={14} /> 发送
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 3. 个人主页与账号设置 */}
-        {activeTab === "profile" && (
-          <div className="flex-1 overflow-y-auto p-8 max-w-2xl mx-auto w-full">
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <User size={20} className="text-blue-600" /> 个人资料与设置
-                </h2>
-                {!isEditingProfile ? (
-                  <button
-                    onClick={() => {
-                      setTempNickname(profile?.username || "");
-                      setTempBio(profile?.bio || "");
-                      setIsEditingProfile(true);
-                    }}
-                    className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 rounded-xl text-xs font-medium flex items-center gap-1 hover:bg-blue-100 transition-colors cursor-pointer"
-                  >
-                    <Edit3 size={14} /> 设置资料
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSaveProfile}
-                    className="px-3 py-1.5 bg-green-600 text-white rounded-xl text-xs font-medium flex items-center gap-1 hover:bg-green-700 transition-colors cursor-pointer"
-                  >
-                    <CheckCircle2 size={14} /> 保存
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-start gap-6">
-                <div className="w-20 h-20 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-2xl shadow-md shrink-0 overflow-hidden">
-                  {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    nickname ? nickname.slice(0, 2).toUpperCase() : "ME"
-                  )}
-                </div>
-
-                <div className="flex-1 space-y-4">
-                  {isEditingProfile ? (
-                    <>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">自定义昵称</label>
-                        <input
-                          type="text"
-                          value={tempNickname}
-                          onChange={(e) => setTempNickname(e.target.value)}
-                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">个性签名</label>
-                        <textarea
-                          value={tempBio}
-                          onChange={(e) => setTempBio(e.target.value)}
-                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none h-20"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-xl font-bold">{nickname}</h3>
-                          <span className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
-                            profile?.role === 'super_admin' ? 'bg-red-500/20 text-red-400' :
-                            profile?.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'
-                          }`}>
-                            {profile?.role === 'super_admin' ? '👑 超级管理员' : profile?.role === 'admin' ? '🛡️ 管理员' : '⭐ 普通用户'}
-                          </span>
-                        </div>
-                        <p className="text-xs font-mono text-blue-400 mt-1">用户 ID: {profile?.user_id || "加载中..."}</p>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed bg-gray-50 dark:bg-gray-950 p-3 rounded-xl">
-                        {profile?.bio || "暂无个性签名"}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* 我的数据统计 */}
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                <h4 className="text-xs font-semibold text-gray-400 mb-3">我的发布统计</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {posts.filter((p) => p.author === nickname).length}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">已发布博文</div>
-                  </div>
-                  <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-100 dark:border-gray-800 text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {posts
-                        .filter((p) => p.author === nickname)
-                        .reduce((sum, p) => sum + p.likes, 0)}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">获得赞数</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 4. 超级管理员权限控制台 */}
-        {activeTab === "admin" && profile?.role === 'super_admin' && (
-          <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
-            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                👑 超级管理员权限配置面板
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-400 text-sm">
-                      <th className="py-3 px-4">用户 ID</th>
-                      <th className="py-3 px-4">用户名</th>
-                      <th className="py-3 px-4">当前身份</th>
-                      <th className="py-3 px-4">修改权限</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allUsers.map((u) => (
-                      <tr key={u.id} className="border-b border-gray-100 dark:border-gray-800/40 hover:bg-gray-50 dark:hover:bg-gray-950/40">
-                        <td className="py-3 px-4 font-mono text-blue-600 dark:text-blue-400">{u.user_id}</td>
-                        <td className="py-3 px-4 flex items-center gap-3">
-                          <img src={u.avatar_url} className="w-8 h-8 rounded-full object-cover" />
-                          <span className="font-medium">{u.username}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            u.role === 'super_admin' ? 'bg-red-500/20 text-red-400' :
-                            u.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-                          }`}>
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <select 
-                            value={u.role}
-                            onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                            className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 text-gray-800 dark:text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="user">普通用户</option>
-                            <option value="admin">普通管理员</option>
-                            <option value="super_admin">超级管理员</option>
-                          </select>
-                        </td>
-                      </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        )}
-
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

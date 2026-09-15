@@ -118,6 +118,10 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
+      # 初始化 Android 项目结构（针对 CI 非交互式环境）
+      - name: Init Tauri Android Project
+        run: npx tauri android init --no-prompt
+
       # 使用 Tauri v2 原生 Android 打包指令编译 APK
       - name: Build Android APK
         env:
@@ -138,3 +142,4 @@ jobs:
           files: |
             src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
             src-tauri/gen/android/app/build/outputs/apk/arm64/release/*.apk
+            src-tauri/gen/android/app/build/outputs/apk/arm64/unsigned/*.apk

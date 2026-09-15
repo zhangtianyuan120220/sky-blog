@@ -38,6 +38,9 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
       - name: Install System Dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -96,6 +99,9 @@ jobs:
             i686-linux-android
             x86_64-linux-android
 
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
       - name: Setup Java (Android)
         uses: actions/setup-java@v4
         with:
@@ -108,9 +114,10 @@ jobs:
           accept-android-sdk-licenses: true
           packages: ''
 
-      - name: Install Required SDK Packages
+      - name: Install Required SDK & NDK Packages
         run: |
-          sdkmanager "platform-tools"
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
 
       - name: Install System Dependencies
         run: |
@@ -132,11 +139,11 @@ jobs:
       - name: Build Next.js App
         run: npm run build
 
-      - name: Init Android Project
-        run: npx @tauri-apps/cli android init
-
       - name: Build Android App
-        run: npx @tauri-apps/cli android build
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
+          npx @tauri-apps/cli android init || true
+          npx @tauri-apps/cli android build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -9,7 +9,31 @@ on:
   workflow_dispatch:
 
 jobs:
+  # 步骤 1：先清理 GitHub 上已有的 nightly 标签和对应的旧文件，防止上传冲突
+  prepare-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete existing nightly release assets
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            try {
+              const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag: 'nightly' });
+              if (release && release.data) {
+                console.log(`Deleting existing nightly release ID: ${release.data.id}`);
+                await github.rest.repos.deleteRelease({ owner, repo, release_id: release.data.id });
+              }
+            } catch (error) {
+              console.log('No existing nightly release found, skipping deletion.');
+            }
+
+  # 步骤 2：多平台并行构建桌面端应用
   release-desktop:
+    needs: prepare-release
     permissions:
       contents: write
     strategy:
@@ -51,7 +75,9 @@ jobs:
           releaseBody: "Automated build of Sky-Blog."
           releaseDraft: false
           prerelease: true
+          allowOverwrite: true
 
+  # 步骤 3：桌面端完成后，构建 Android 端 APK
   release-android:
     needs: release-desktop
     permissions:
@@ -98,3 +124,4 @@ jobs:
           releaseBody: "Automated build of Sky-Blog."
           releaseDraft: false
           prerelease: true
+          allowOverwrite: true

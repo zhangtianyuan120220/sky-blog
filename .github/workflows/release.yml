@@ -9,13 +9,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1. 构建前清理已存在的 nightly 标签与文件，防止覆盖冲突
+  # 1. 构建前清理（如果是 nightly 构建则清理，标准版本号 Tag 不清理）
   prepare-release:
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
-      - name: Delete existing nightly release assets
+      - name: Delete existing release assets if nightly
+        if: github.ref_name == 'nightly'
         uses: actions/github-script@v7
         with:
           script: |
@@ -65,16 +66,17 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
+      # 动态推送到当前触发的 Tag（例如 v1.2.0）
       - name: Build and Release Desktop App
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: nightly
-          releaseName: "Sky-Blog Nightly Build"
-          releaseBody: "Automated build of Sky-Blog."
+          tagName: ${{ github.ref_name }}
+          releaseName: "Sky-Blog ${{ github.ref_name }}"
+          releaseBody: "Automated release for ${{ github.ref_name }}."
           releaseDraft: false
-          prerelease: true
+          prerelease: false
           allowOverwrite: true
 
   # 3. Android 端构建与发布
@@ -92,14 +94,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 配置 NDK 路径
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r25c
 
-      # 将 NDK 工具链添加到系统 PATH
       - name: Add NDK toolchain to PATH
         run: |
           echo "${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
@@ -118,11 +118,9 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
-      # 初始化 Android 项目结构（去掉不支持的 --no-prompt 参数）
       - name: Init Tauri Android Project
         run: npx tauri android init
 
-      # 使用 Tauri v2 原生 Android 打包指令编译 APK
       - name: Build Android APK
         env:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
@@ -132,14 +130,19 @@ jobs:
           AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
         run: npx tauri android build --target aarch64
 
-      # 将生成的 APK 文件上传到 GitHub Release
+      - name: Locate Generated APKs
+        run: |
+          echo "=== Finding generated APK files ==="
+          find src-tauri/gen/android/ -name "*.apk"
+
+      # 动态发布 APK 到当前 Tag 页面
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nightly
-          name: "Sky-Blog Nightly Build"
-          prerelease: true
+          tag_name: ${{ github.ref_name }}
+          name: "Sky-Blog ${{ github.ref_name }}"
+          prerelease: false
           files: |
-            src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
-            src-tauri/gen/android/app/build/outputs/apk/arm64/release/*.apk
-            src-tauri/gen/android/app/build/outputs/apk/arm64/unsigned/*.apk
+            src-tauri/gen/android/**/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

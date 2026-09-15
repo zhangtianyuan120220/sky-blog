@@ -68,8 +68,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          releaseName: 'App ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}'
-          releaseBody: 'Automated release for desktop platforms.'
+          releaseName: "App ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          releaseBody: "Automated release for desktop platforms."
           releaseDraft: false
           prerelease: false
 
@@ -93,7 +93,7 @@ jobs:
       - name: Setup Rust toolchain (With Android targets)
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
+          targets: "aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android"
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -110,7 +110,7 @@ jobs:
           accept-android-sdk-licenses: true
           packages: ''
 
-      - name: Install Required SDK & NDK Packages
+      - name: Install Required SDK and NDK Packages
         run: |
           yes | sdkmanager --licenses || true
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"

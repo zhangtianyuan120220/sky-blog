@@ -93,6 +93,13 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: true
+          # 设置为空，跳过默认会安装的过时 'tools' 包
+          packages: ''
+
+      - name: Install Required SDK Packages
+        run: |
+          # 只安装实际需要的现代包
+          sdkmanager "platform-tools"
 
       - name: Install System Dependencies
         run: |

@@ -1,9 +1,9 @@
-import './globals.css';
-import type { Metadata } from 'next';
+import "./globals.css";
+import React from "react";
 
-export const metadata: Metadata = {
-  title: 'Sky-Blog',
-  description: 'Sky-Blog 跨平台客户端',
+export const metadata = {
+  title: "Sky-Blog",
+  description: "Sky-Blog 客户端·动态社区",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="antialiased overflow-hidden">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

@@ -99,13 +99,6 @@ jobs:
         with:
           ndk-version: r25c
 
-      # 关键步骤：把 NDK 编译器路径加到系统的 PATH 环境变量中
-      - name: Add NDK toolchain to PATH
-        run: |
-          echo "NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
-          echo "${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -124,6 +117,11 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          # 关键配置：强行指定 Cargo 在交叉编译 aarch64-linux-android 时使用对应的 Clang 编译器与链接器（支持 Android API Level 33）
+          CC_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
         with:
           args: --target aarch64-linux-android
           tagName: nightly

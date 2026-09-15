@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Setup Rust toolchain
@@ -53,13 +53,13 @@ jobs:
         run: npm run build
 
       - name: Build and Upload Desktop App
-        uses: tauri-apps/tauri-action@v0.5.4
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'App ${{ github.ref_name }}'
-          releaseBody: 'Automated release for desktop and mobile platforms.'
+          releaseBody: 'Automated release for desktop platforms.'
           releaseDraft: false
           prerelease: false
 
@@ -75,7 +75,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Setup Rust toolchain (With Android targets)

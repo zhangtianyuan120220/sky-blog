@@ -99,6 +99,11 @@ jobs:
         with:
           ndk-version: r25c
 
+      # 将 NDK 工具链添加到系统 PATH
+      - name: Add NDK toolchain to PATH
+        run: |
+          echo "${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -119,9 +124,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          # 关键配置：强行指定 Cargo 在交叉编译 aarch64-linux-android 时使用对应的 Clang 编译器与链接器（支持 Android API Level 33）
+          # 显式配置 C 编译器、链接器与 AR 归档器 (使用 NDK r25+ 的 llvm-ar 替换旧版 ar)
           CC_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
           CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
+          AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
         with:
           args: --target aarch64-linux-android
           tagName: nightly

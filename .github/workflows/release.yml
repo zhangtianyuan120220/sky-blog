@@ -77,7 +77,7 @@ jobs:
           prerelease: true
           allowOverwrite: true
 
-  # 3. Android 端构建
+  # 3. Android 端构建与发布
   release-android:
     needs: release-desktop
     permissions:
@@ -118,20 +118,23 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
+      # 使用 Tauri v2 原生 Android 打包指令编译 APK
       - name: Build Android APK
-        uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           CC_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
           CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
           AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+        run: npx tauri android build --target aarch64
+
+      # 将生成的 APK 文件上传到 GitHub Release
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
         with:
-          args: --target aarch64-linux-android --apk
-          tagName: nightly
-          releaseName: "Sky-Blog Nightly Build"
-          releaseBody: "Automated build of Sky-Blog."
-          releaseDraft: false
+          tag_name: nightly
+          name: "Sky-Blog Nightly Build"
           prerelease: true
-          allowOverwrite: true
+          files: |
+            src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+            src-tauri/gen/android/app/build/outputs/apk/arm64/release/*.apk

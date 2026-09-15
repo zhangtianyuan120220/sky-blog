@@ -42,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Build and Release Desktop App
-        uses: tauri-apps/tauri-action@v2
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -51,7 +51,7 @@ jobs:
           releaseBody: "Automated build of Sky-Blog."
           releaseDraft: false
           prerelease: true
-          overwrite: true # 关键设置：允许覆盖已存在的同名发布文件
+          overwrite: true
 
   release-android:
     needs: release-desktop
@@ -87,7 +87,7 @@ jobs:
         run: npm ci
 
       - name: Build Android APK
-        uses: tauri-apps/tauri-action@v2
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
@@ -98,4 +98,4 @@ jobs:
           releaseBody: "Automated build of Sky-Blog."
           releaseDraft: false
           prerelease: true
-          overwrite: true # 关键设置：允许覆盖已存在的同名发布文件
+          overwrite: true

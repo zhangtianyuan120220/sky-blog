@@ -2,9 +2,6 @@ name: Release All Platforms
 
 on:
   push:
-    branches:
-      - main
-      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -14,10 +11,14 @@ on:
         required: true
         type: string
 
+# 给予 workflow 完整的发布与打包权限
+permissions:
+  contents: write
+  discussions: write
+  id-token: write
+
 jobs:
   release-desktop:
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -75,8 +76,6 @@ jobs:
 
   release-android:
     needs: release-desktop
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

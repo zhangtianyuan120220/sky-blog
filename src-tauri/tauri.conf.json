@@ -10,6 +10,13 @@
     "version": "0.1.0"
   },
   "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      }
+    },
     "bundle": {
       "active": true,
       "targets": "all",
@@ -21,6 +28,18 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ]
-    }
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "Sky-Blog",
+        "width": 1200,
+        "height": 800
+      }
+    ]
   }
 }

@@ -4,152 +4,98 @@ on:
   push:
     branches:
       - main
-      - master
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag name (e.g. v1.0.0)'
-        required: true
-        type: string
-
-# 给予全局写权限，解决 Resource not accessible 报错
-permissions:
-  contents: write
-  discussions: write
-  id-token: write
 
 jobs:
   release-desktop:
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        platform: [windows-latest, ubuntu-22.04, macos-latest]
+
+    runs-on: ${{ matrix.platform }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
 
-      - name: Setup Rust toolchain
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
-
-      - name: Install System Dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install app dependencies
+        run: npm ci
 
-      - name: Build Next.js App
-        run: npm run build
-
-      - name: Build and Upload Desktop App
-        uses: tauri-apps/tauri-action@v0
+      - name: Build and Release Desktop App
+        uses: tauri-apps/tauri-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'nightly') }}
-          releaseName: "App ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Nightly Build') }}"
-          releaseBody: "Automated release for desktop platforms."
+          tagName: nightly
+          releaseName: "Sky-Blog Nightly Build"
+          releaseBody: "Automated build of Sky-Blog."
           releaseDraft: false
-          prerelease: false
+          prerelease: true
+          overwrite: true # 关键设置：允许覆盖已存在的同名发布文件
 
   release-android:
     needs: release-desktop
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
-      - name: Setup Rust toolchain (With Android targets)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: "aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android"
-
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
-
-      - name: Setup Java (Android)
+      - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android NDK
+        uses: nknouf/setup-ndk@v1
         with:
-          accept-android-sdk-licenses: true
-          packages: ''
+          ndk-version: r25c
 
-      - name: Install Required SDK and NDK Packages
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;26.1.10909125"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev
+      - name: Install Rust stable and Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install app dependencies
+        run: npm ci
 
-      - name: Build Next.js App
-        run: npm run build
-
-      - name: Build Android App
-        run: |
-          export NDK_HOME="$ANDROID_HOME/ndk/26.1.10909125"
-          npx @tauri-apps/cli android init || true
-          npx @tauri-apps/cli android build
+      - name: Build Android APK
+        uses: tauri-apps/tauri-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Android APK to Release
-        uses: softprops/action-gh-release@v2
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         with:
-          files: |
-            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'nightly') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          args: --target aarch64-linux-android
+          tagName: nightly
+          releaseName: "Sky-Blog Nightly Build"
+          releaseBody: "Automated build of Sky-Blog."
+          releaseDraft: false
+          prerelease: true
+          overwrite: true # 关键设置：允许覆盖已存在的同名发布文件

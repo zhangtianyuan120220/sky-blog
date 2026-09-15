@@ -118,9 +118,9 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
-      # 初始化 Android 项目结构（针对 CI 非交互式环境）
+      # 初始化 Android 项目结构（去掉不支持的 --no-prompt 参数）
       - name: Init Tauri Android Project
-        run: npx tauri android init --no-prompt
+        run: npx tauri android init
 
       # 使用 Tauri v2 原生 Android 打包指令编译 APK
       - name: Build Android APK

@@ -2,6 +2,9 @@ name: Release All Platforms
 
 on:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -11,7 +14,7 @@ on:
         required: true
         type: string
 
-# 给予 workflow 完整的发布与打包权限
+# 给予全局写权限，解决 Resource not accessible 报错
 permissions:
   contents: write
   discussions: write
@@ -68,8 +71,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          releaseName: "App ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'nightly') }}
+          releaseName: "App ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Nightly Build') }}"
           releaseBody: "Automated release for desktop platforms."
           releaseDraft: false
           prerelease: false
@@ -147,6 +150,6 @@ jobs:
         with:
           files: |
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'nightly') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

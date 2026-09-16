@@ -1,9 +1,9 @@
-// src/app/layout.tsx
-import './globals.css'; // 必须引入这一行！
+import './globals.css';
+import React from 'react';
 
 export const metadata = {
   title: 'Sky-Blog',
-  description: 'Sky-Blog Desktop Client',
+  description: 'Sky-Blog Desktop Application',
 };
 
 export default function RootLayout({
@@ -13,7 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body className="antialiased bg-slate-50 text-slate-900 min-h-screen">
+        {children}
+      </body>
     </html>
   );
 }

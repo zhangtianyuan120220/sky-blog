@@ -27,14 +27,9 @@ export interface SkyBlogProfileAndFriendsProps {
   showToast?: (msg: string) => void;
 }
 
-/**
- * SkyBlogProfileAndFriends Component
- * 好友搜索、好友申请管理与即时私信聊天模块
- */
 export default function SkyBlogProfileAndFriends({
   showToast,
 }: SkyBlogProfileAndFriendsProps) {
-  // 搜索与好友相关状态
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<FriendUser[]>([]);
 
@@ -68,7 +63,6 @@ export default function SkyBlogProfileAndFriends({
     },
   ]);
 
-  // 聊天对话相关状态
   const [activeChatFriend, setActiveChatFriend] = useState<FriendUser | null>(
     null
   );
@@ -92,7 +86,6 @@ export default function SkyBlogProfileAndFriends({
   );
   const [chatInput, setChatInput] = useState<string>('');
 
-  // 1. 搜索用户
   const handleSearchUsers = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) {
@@ -108,12 +101,10 @@ export default function SkyBlogProfileAndFriends({
     ]);
   };
 
-  // 2. 发送好友申请
   const handleSendFriendRequest = (user: FriendUser) => {
     if (showToast) showToast(`已向 ${user.username} 发送好友申请`);
   };
 
-  // 3. 同意好友申请
   const handleAcceptRequest = (req: PendingRequest) => {
     setPendingRequests((prev) => prev.filter((r) => r.id !== req.id));
     setFriendsList((prev) => [
@@ -123,7 +114,6 @@ export default function SkyBlogProfileAndFriends({
     if (showToast) showToast(`已将 ${req.username} 添加为好友`);
   };
 
-  // 4. 发送私信
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || !activeChatFriend) return;
@@ -148,9 +138,7 @@ export default function SkyBlogProfileAndFriends({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* 左侧：搜索与申请控制区 */}
       <div className="space-y-6">
-        {/* 查找好友 */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
           <h3 className="text-sm font-bold text-slate-800">查找与添加好友</h3>
           <form onSubmit={handleSearchUsers} className="flex gap-2">
@@ -169,7 +157,6 @@ export default function SkyBlogProfileAndFriends({
             </button>
           </form>
 
-          {/* 搜索结果列表 */}
           {searchResults.map((u) => (
             <div
               key={u.id}
@@ -191,7 +178,6 @@ export default function SkyBlogProfileAndFriends({
           ))}
         </div>
 
-        {/* 待处理申请 */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
           <h3 className="text-sm font-bold text-slate-800">
             好友申请 ({pendingRequests.length})
@@ -225,11 +211,9 @@ export default function SkyBlogProfileAndFriends({
         </div>
       </div>
 
-      {/* 右侧：聊天与好友私信窗口 */}
       <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between min-h-[460px]">
         {activeChatFriend ? (
           <>
-            {/* 对话框头部 */}
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-800">
@@ -251,7 +235,6 @@ export default function SkyBlogProfileAndFriends({
               </button>
             </div>
 
-            {/* 消息历史列表 */}
             <div className="flex-1 overflow-y-auto my-4 space-y-3 pr-2">
               {(chatMessages[activeChatFriend.id] || []).map((msg) => (
                 <div
@@ -276,7 +259,6 @@ export default function SkyBlogProfileAndFriends({
               ))}
             </div>
 
-            {/* 输入发送框 */}
             <form
               onSubmit={handleSendMessage}
               className="flex gap-2 pt-2 border-t border-slate-100"
@@ -297,7 +279,6 @@ export default function SkyBlogProfileAndFriends({
             </form>
           </>
         ) : (
-          /* 未选中聊天对象时的缺省状态 */
           <div className="h-full flex flex-col items-center justify-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-xl">
               💬

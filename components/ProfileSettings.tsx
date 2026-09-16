@@ -34,10 +34,6 @@ export interface ProfileFormData {
   avatarFrame: string;
 }
 
-/**
- * ProfileSettings Component
- * 个人资料与个性化装扮设置模块
- */
 export default function ProfileSettings({
   currentUser,
   onSaveProfile,
@@ -69,7 +65,6 @@ export default function ProfileSettings({
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-6">
-      {/* 顶部个人卡片预览 */}
       <div className="flex items-center gap-6 pb-6 border-b border-slate-100">
         <div
           className={`w-24 h-24 rounded-full flex items-center justify-center bg-slate-900 text-white font-black text-2xl overflow-hidden shrink-0 ${
@@ -108,7 +103,6 @@ export default function ProfileSettings({
         </div>
       </div>
 
-      {/* 表单配置区 */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>

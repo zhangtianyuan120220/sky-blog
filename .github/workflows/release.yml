@@ -42,7 +42,7 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
-      # 动态发布桌面端打包产物到对应的 Release 页面
+      # 使用 overwrite: true 允许并行任务覆盖重复写入的文件
       - name: Build and Release Desktop App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -53,7 +53,7 @@ jobs:
           releaseBody: "Automated release for ${{ github.ref_name }}."
           releaseDraft: false
           prerelease: false
-          allowOverwrite: true
+          overwrite: true
 
   # 2. Android 端构建与发布（带证书签名）
   release-android:

@@ -5,10 +5,9 @@ import PostBlogEditor from '@/components/PostBlogEditor';
 import BlogPostCard, { BlogPost } from '@/components/BlogPostCard';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'home' | 'apps' | 'messages' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'messages' | 'profile'>('home');
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // 初始博文列表（匹配截图内容）
   const [posts, setPosts] = useState<BlogPost[]>([
     {
       id: 1,
@@ -52,9 +51,8 @@ $$\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx$$
     <div className="flex h-screen w-screen bg-[#f3f4f6] text-slate-800 overflow-hidden font-sans">
       {/* 左侧纵向导航栏 */}
       <aside className="w-16 bg-white border-r border-slate-200/80 flex flex-col items-center justify-between py-4 shrink-0 z-10">
-        {/* 顶部 Logo / 用户状态 */}
         <div className="flex flex-col items-center gap-6">
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow-sm cursor-pointer">
+          <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs shadow-sm cursor-pointer">
             用户
           </div>
 
@@ -103,12 +101,11 @@ $$\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx$$
           </nav>
         </div>
 
-        {/* 底部系统操作 */}
         <div className="flex flex-col items-center gap-4">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="p-2.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-xl transition cursor-pointer"
-            title="深色模式切换"
+            title="深色模式"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
@@ -125,9 +122,9 @@ $$\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx$$
         </div>
       </aside>
 
-      {/* 右侧主内容区 */}
+      {/* 右侧主内容 */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* 顶部标题栏 */}
+        {/* 顶部标题 */}
         <header className="h-10 px-6 bg-transparent flex items-center justify-between text-xs text-slate-400 shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-500">Sky-Blog 客户端</span>
@@ -136,12 +133,10 @@ $$\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx$$
           </div>
         </header>
 
-        {/* 滚动内容区 */}
+        {/* 核心内容与博文流 */}
         <main className="flex-1 overflow-y-auto px-8 py-4 space-y-6 max-w-4xl w-full mx-auto">
-          {/* 发布编辑器 */}
           <PostBlogEditor onPublish={handlePublish} />
 
-          {/* 信息状态栏 */}
           <div className="flex items-center justify-between text-xs text-slate-400 px-1">
             <span>共 {posts.length} 篇博文</span>
             <button
@@ -155,7 +150,6 @@ $$\\hat{f}(\\xi) = \\int_{-\\infty}^{\\infty} f(x) e^{-2\\pi i x \\xi} dx$$
             </button>
           </div>
 
-          {/* 博文动态列表 */}
           <div className="space-y-4 pb-10">
             {posts.map((post) => (
               <BlogPostCard key={post.id} post={post} />

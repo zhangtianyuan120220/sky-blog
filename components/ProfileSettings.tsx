@@ -64,11 +64,11 @@ export default function ProfileSettings({
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-6">
+    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200 space-y-8">
       {/* 头部信息与头像预览 */}
       <div className="flex items-center gap-6 pb-6 border-b border-slate-100">
         <div
-          className={`w-20 h-20 rounded-full flex items-center justify-center bg-slate-900 text-white font-bold text-xl overflow-hidden shrink-0 ${
+          className={`w-20 h-20 rounded-full bg-slate-900 text-white font-bold text-xl flex items-center justify-center overflow-hidden shrink-0 ${
             frameStyles[formData.avatarFrame] || ''
           }`}
         >
@@ -83,17 +83,17 @@ export default function ProfileSettings({
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-slate-900">
               {formData.username || '未设置昵称'}
             </h2>
             <span
-              className={`text-xs px-2.5 py-0.5 rounded-full border ${
+              className={`text-xs px-2.5 py-0.5 rounded-full border font-semibold ${
                 roleBadges[currentUser.role]?.style || 'bg-slate-100 text-slate-700'
               }`}
             >
-              {roleBadges[currentUser.role]?.name || '用户'}
+              {roleBadges[currentUser.role]?.name || '社区成员'}
             </span>
           </div>
           <p className="text-xs text-slate-500">
@@ -105,86 +105,84 @@ export default function ProfileSettings({
         </div>
       </div>
 
-      {/* 修改表单 */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-600">用户昵称</label>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              placeholder="请输入昵称..."
-              className="w-full max-w-md px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+      {/* 纵向排列的表单项 */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-700">用户昵称</label>
+          <input
+            type="text"
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            placeholder="请输入昵称..."
+            className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition"
+          />
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-600">
-              头像图片 URL (留空显示首字母)
-            </label>
-            <input
-              type="text"
-              name="avatarUrl"
-              value={formData.avatarUrl}
-              onChange={handleChange}
-              placeholder="https://example.com/avatar.jpg"
-              className="w-full max-w-md px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-700">
+            头像图片 URL (留空显示首字母)
+          </label>
+          <input
+            type="text"
+            name="avatarUrl"
+            value={formData.avatarUrl}
+            onChange={handleChange}
+            placeholder="https://example.com/avatar.jpg"
+            className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition"
+          />
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-600">
-              个性签名 / Bio
-            </label>
-            <input
-              type="text"
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              placeholder="介绍一下你自己..."
-              className="w-full max-w-md px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-700">
+            个性签名 / Bio
+          </label>
+          <input
+            type="text"
+            name="bio"
+            value={formData.bio}
+            onChange={handleChange}
+            placeholder="介绍一下你自己..."
+            className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition"
+          />
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-600">
-              选择头像框样式
-            </label>
-            <select
-              name="avatarFrame"
-              value={formData.avatarFrame}
-              onChange={handleChange}
-              className="w-full max-w-md px-3.5 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none"
-            >
-              <option value="none">无边框</option>
-              <option value="gold">荣耀金色 (Gold)</option>
-              <option value="cyber">霓虹赛博 (Cyber)</option>
-              <option value="purple">星空幻紫 (Purple)</option>
-              <option value="red">烈焰红极 (Red)</option>
-            </select>
-          </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-700">
+            选择头像框样式
+          </label>
+          <select
+            name="avatarFrame"
+            value={formData.avatarFrame}
+            onChange={handleChange}
+            className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition cursor-pointer"
+          >
+            <option value="none">无边框</option>
+            <option value="gold">荣耀金色 (Gold)</option>
+            <option value="cyber">霓虹赛博 (Cyber)</option>
+            <option value="purple">星空幻紫 (Purple)</option>
+            <option value="red">烈焰红极 (Red)</option>
+          </select>
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-600">
-              主页 Banner 背景图 URL
-            </label>
-            <input
-              type="text"
-              name="bannerUrl"
-              value={formData.bannerUrl}
-              onChange={handleChange}
-              placeholder="https://example.com/banner.jpg"
-              className="w-full max-w-md px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-          </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-bold text-slate-700">
+            主页 Banner 背景图 URL
+          </label>
+          <input
+            type="text"
+            name="bannerUrl"
+            value={formData.bannerUrl}
+            onChange={handleChange}
+            placeholder="https://example.com/banner.jpg"
+            className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition"
+          />
         </div>
 
         <div className="pt-2">
           <button
             type="submit"
-            className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition cursor-pointer"
+            className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition cursor-pointer shadow-sm"
           >
             保存配置
           </button>

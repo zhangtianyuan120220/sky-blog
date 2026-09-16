@@ -1,3 +1,7 @@
+use tauri_plugin_http;
+use tauri_plugin_notification;
+use tauri_plugin_shell;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

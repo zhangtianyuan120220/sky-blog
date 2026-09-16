@@ -3,8 +3,6 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
 
 export interface BlogPost {
   id: number;
@@ -32,14 +30,9 @@ export default function BlogPostCard({ post }: { post: BlogPost }) {
     }
   };
 
-  // 简易的 KaTeX 渲染辅助（若不依赖额外复杂插件，用自定义组件精准渲染）
-  const renderMathContent = (text: string) => {
-    return text;
-  };
-
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/60 space-y-4">
-      {/* 作者信息栏 */}
+      {/* 作者信息 */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0">
           {post.avatarText}
@@ -52,7 +45,7 @@ export default function BlogPostCard({ post }: { post: BlogPost }) {
         </div>
       </div>
 
-      {/* 博文正文内容 */}
+      {/* 内容主体 */}
       <div className="text-sm text-slate-700 leading-relaxed space-y-3 prose prose-slate max-w-none">
         {post.title && (
           <h3 className="text-base font-bold text-slate-900 mb-2">{post.title}</h3>
@@ -68,7 +61,7 @@ export default function BlogPostCard({ post }: { post: BlogPost }) {
         </ReactMarkdown>
       </div>
 
-      {/* 底部互动栏 */}
+      {/* 底部互动 */}
       <div className="flex items-center gap-6 pt-3 text-xs text-slate-400 border-t border-slate-100">
         <button
           onClick={handleLike}

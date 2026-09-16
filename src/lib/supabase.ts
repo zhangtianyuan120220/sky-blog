@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-// 使用兜底字符串，防止打包（next build / ssg）预渲染阶段报错
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xyzcompany.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy'
+// 使用环境变量或安全兜底值，确保构建阶段（Next.js static export / Tauri build）不报空值错误
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)

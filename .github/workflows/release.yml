@@ -8,6 +8,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# 全局赋予写入权限，解决 Resource not accessible by integration 问题
+permissions:
+  contents: write
+
 jobs:
   # 1. 编译桌面端 (Windows / Ubuntu / macOS) 并保存产物
   build-desktop:
@@ -40,7 +44,7 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
-      # 使用 npm run tauri build 纯编译，不触发任何 GitHub Release 操作
+      # 使用 npm run tauri build 纯编译，不触发任何内置 GitHub Release
       - name: Build Desktop App
         run: npx tauri build
 
@@ -138,14 +142,23 @@ jobs:
         with:
           path: release-artifacts
 
-      # 使用支持强力覆盖的 action-gh-release 统一上传
+      # 动态提取 Tag Name（如果由分支触发，默认映射到 main-latest，如果是 Tag 触发则直接使用 Tag 名）
+      - name: Set Release Tag
+        id: release_tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "TAG_NAME=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG_NAME=main-latest" >> $GITHUB_OUTPUT
+          fi
+
+      # 使用正确的 overwrite_files 属性上传
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "Sky-Blog ${{ github.ref_name }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.release_tag.outputs.TAG_NAME }}
+          name: "Sky-Blog ${{ steps.release_tag.outputs.TAG_NAME }}"
           prerelease: false
-          overwrite: true
+          overwrite_files: true
           files: release-artifacts/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

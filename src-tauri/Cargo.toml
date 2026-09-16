@@ -5,6 +5,11 @@ description = "Sky-Blog Desktop Client"
 authors = ["Sky_distant"]
 edition = "2021"
 
+# Android 构建必需：配置 lib 编译目标和 crate-type
+[lib]
+name = "sky_blog"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

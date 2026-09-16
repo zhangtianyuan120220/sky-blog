@@ -14,9 +14,10 @@ body {
   overflow: hidden;
   height: 100vh;
   width: 100vw;
+  user-select: none;
 }
 
-/* 优化自定义滚动条，使其契合桌面端 UI */
+/* 桌面客户端极简滚动条 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

@@ -39,7 +39,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
-      {/* Toast 消息提示框 */}
+      {/* Toast 提示框 */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg border border-slate-700">
           {toastMessage}
@@ -70,7 +70,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 视图渲染 */}
+      {/* 主视图 */}
       {activeTab === 'profile' ? (
         <ProfileSettings
           currentUser={currentUser}

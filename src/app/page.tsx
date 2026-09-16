@@ -13,7 +13,6 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // 模拟当前登录用户数据
   const currentUser = {
     username: 'Sky_distant',
     email: 'sky@example.com',
@@ -40,14 +39,14 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
-      {/* Toast 提示框 */}
+      {/* Toast 消息提示框 */}
       {toastMessage && (
         <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg border border-slate-700">
           {toastMessage}
         </div>
       )}
 
-      {/* 顶部 Tab 切换菜单 */}
+      {/* 顶部 Tab 切换 */}
       <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
         <button
           onClick={() => setActiveTab('profile')}
@@ -71,7 +70,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 主内容展示区 */}
+      {/* 视图渲染 */}
       {activeTab === 'profile' ? (
         <ProfileSettings
           currentUser={currentUser}

@@ -9,32 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 1. 构建前清理（如果是 nightly 构建则清理，标准版本号 Tag 不清理）
-  prepare-release:
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete existing release assets if nightly
-        if: github.ref_name == 'nightly'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            try {
-              const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag: 'nightly' });
-              if (release && release.data) {
-                console.log(`Deleting existing nightly release ID: ${release.data.id}`);
-                await github.rest.repos.deleteRelease({ owner, repo, release_id: release.data.id });
-              }
-            } catch (error) {
-              console.log('No existing nightly release found, skipping deletion.');
-            }
-
-  # 2. 桌面端构建 (Windows / Ubuntu / macOS)
+  # 1. 桌面端构建 (Windows / Ubuntu / macOS)
   release-desktop:
-    needs: prepare-release
     permissions:
       contents: write
     strategy:
@@ -66,7 +42,7 @@ jobs:
       - name: Install app dependencies
         run: npm install
 
-      # 动态推送到当前触发的 Tag（例如 v1.2.0）
+      # 动态发布桌面端打包产物到对应的 Release 页面
       - name: Build and Release Desktop App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -79,7 +55,7 @@ jobs:
           prerelease: false
           allowOverwrite: true
 
-  # 3. Android 端构建与发布
+  # 2. Android 端构建与发布（带证书签名）
   release-android:
     needs: release-desktop
     permissions:
@@ -121,6 +97,12 @@ jobs:
       - name: Init Tauri Android Project
         run: npx tauri android init
 
+      # 从 Secrets 中解码并还原 .jks 密钥文件
+      - name: Decode Android Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > src-tauri/gen/android/skyblog.jks
+
+      # 注入打包与签名环境变量并执行构建
       - name: Build Android APK
         env:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
@@ -128,6 +110,11 @@ jobs:
           CC_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
           CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
           AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
+          # Android Gradle 签名配置
+          MAIN_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          MAIN_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          MAIN_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          MAIN_KEYSTORE_FILE: ../skyblog.jks
         run: npx tauri android build --target aarch64
 
       - name: Locate Generated APKs
@@ -135,13 +122,14 @@ jobs:
           echo "=== Finding generated APK files ==="
           find src-tauri/gen/android/ -name "*.apk"
 
-      # 动态发布 APK 到当前 Tag 页面
+      # 发布已签名的 APK 文件到 Release 页面
       - name: Upload APK to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: "Sky-Blog ${{ github.ref_name }}"
           prerelease: false
+          overwrite: true
           files: |
             src-tauri/gen/android/**/*.apk
         env:

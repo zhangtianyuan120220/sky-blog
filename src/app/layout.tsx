@@ -1,10 +1,9 @@
-import "katex/dist/katex.min.css";
-import "./globals.css";
-import React from "react";
+// src/app/layout.tsx
+import './globals.css'; // 必须引入这一行！
 
 export const metadata = {
-  title: "Sky-Blog",
-  description: "Sky-Blog 客户端·动态社区",
+  title: 'Sky-Blog',
+  description: 'Sky-Blog Desktop Client',
 };
 
 export default function RootLayout({

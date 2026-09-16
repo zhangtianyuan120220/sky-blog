@@ -139,6 +139,7 @@ export default function SkyBlogProfileAndFriends({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="space-y-6">
+        {/* 查找与添加好友 */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
           <h3 className="text-sm font-bold text-slate-800">查找与添加好友</h3>
           <form onSubmit={handleSearchUsers} className="flex gap-2">
@@ -178,6 +179,7 @@ export default function SkyBlogProfileAndFriends({
           ))}
         </div>
 
+        {/* 好友申请 */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
           <h3 className="text-sm font-bold text-slate-800">
             好友申请 ({pendingRequests.length})
@@ -211,6 +213,7 @@ export default function SkyBlogProfileAndFriends({
         </div>
       </div>
 
+      {/* 聊天区 */}
       <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between min-h-[460px]">
         {activeChatFriend ? (
           <>
